@@ -6,7 +6,7 @@ const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julh
 function reais(valor, casas = 2) {
     return Number(valor)
         .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: casas, maximumFractionDigits: casas })
-        .replace(/ /g, ' ');
+        .replace(/\u00a0/g, ' ');
 }
 
 function arredondar(valor) {

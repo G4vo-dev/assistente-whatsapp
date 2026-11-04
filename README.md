@@ -3,7 +3,7 @@
 Assistente pessoal que roda no próprio WhatsApp: controla finanças (cartões, parcelas, metas e limites), entende áudios e comprovantes com IA, faz figurinhas, marca lembretes e manda resumos automáticos. Feito em **Node.js**, roda até num celular Android com **Termux**.
 
 ![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-339933?logo=node.js&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-43%20passando-2ea44f)
+[![testes](https://github.com/G4vo-dev/assistente-whatsapp/actions/workflows/testes.yml/badge.svg)](https://github.com/G4vo-dev/assistente-whatsapp/actions/workflows/testes.yml)
 ![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
 
 ## Experimente sem WhatsApp
@@ -96,7 +96,7 @@ flowchart LR
 - **Nunca responde a si mesmo:** o ID de cada mensagem enviada é gerado antes do envio, porque o WhatsApp devolve a própria mensagem antes da resposta da API.
 - **Figurinhas leves:** a figurinha animada é refeita com qualidade e fps menores até caber no limite do WhatsApp.
 - **Privacidade:** só o dono usa por padrão; quem for liberado recebe um aviso de privacidade; um modo privado mantém finanças, comprovantes e áudios longe das IAs que usam os dados no plano grátis.
-- **Testes sem WhatsApp:** 43 testes com um WhatsApp simulado cobrem finanças, fila de IAs, agenda, backup, privacidade e conversão de mídia com ffmpeg de verdade.
+- **Testes sem WhatsApp:** 43 testes com um WhatsApp simulado cobrem finanças, fila de IAs, agenda, backup, privacidade e conversão de mídia com ffmpeg de verdade. O GitHub Actions roda o lint e os testes a cada mudança, no Node 20, 22 e 24.
 
 ## Rodando no WhatsApp
 
@@ -112,6 +112,7 @@ No Termux, `npm run iniciar` religa o bot se ele cair e `npm run instalar-boot` 
 |---|---|
 | `npm run demo` | conversa com o bot no terminal |
 | `npm test` | roda os testes |
+| `npm run lint` | confere o padrão do código (ESLint) |
 | `npm run modelos` | lista os modelos das IAs com chave |
 
 ## Estrutura

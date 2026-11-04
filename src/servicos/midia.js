@@ -28,15 +28,6 @@ function apagarPasta(pasta) {
     if (pasta) fs.rmSync(pasta, { recursive: true, force: true });
 }
 
-function unicoArquivo(pasta) {
-    const arquivos = fs.readdirSync(pasta)
-        .filter((nome) => !nome.endsWith('.part') && !nome.endsWith('.ytdl'))
-        .map((nome) => path.join(pasta, nome))
-        .filter((caminho) => fs.statSync(caminho).size > 0)
-        .sort((a, b) => fs.statSync(b).size - fs.statSync(a).size);
-    return arquivos[0] || null;
-}
-
 // ---------- ferramentas externas ----------
 
 async function rodar(programa, argumentos) {
