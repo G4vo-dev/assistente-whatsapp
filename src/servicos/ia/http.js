@@ -16,7 +16,7 @@ async function postarJson(url, cabecalhos, corpo, { tempoMs = 90000 } = {}) {
         signal: AbortSignal.timeout(tempoMs),
     });
     const texto = await resposta.text();
-    let dados = null;
+    let dados;
     try {
         dados = texto ? JSON.parse(texto) : null;
     } catch {

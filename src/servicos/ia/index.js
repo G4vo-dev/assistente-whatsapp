@@ -54,7 +54,7 @@ async function transcreverAudio(dados, nome = 'audio.ogg', tipo = 'audio/ogg') {
         const { texto } = await fila.executar('audio', (p) => p.audio({ dados, nome, tipo }));
         return texto;
     } catch (erro) {
-        throw new Error(fila.disponivel('audio') ? erro.message : 'nenhuma IA de áudio configurada (GROQ_API_KEY ou GEMINI_API_KEY)');
+        throw new Error(fila.disponivel('audio') ? erro.message : 'nenhuma IA de áudio configurada (GROQ_API_KEY ou GEMINI_API_KEY)', { cause: erro });
     }
 }
 
