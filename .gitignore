@@ -1,0 +1,13 @@
+node_modules/
+.env
+
+# login do WhatsApp: nunca suba isso pro GitHub
+auth_info_baileys/
+sessions/
+
+# seus dados (finanças, lembretes e backups)
+dados/
+src/data/
+database_*.json
+*.sqlite
+*.tmp
