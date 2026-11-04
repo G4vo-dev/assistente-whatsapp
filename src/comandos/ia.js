@@ -29,7 +29,7 @@ function aplicarAcao(conta, a, novas = []) {
     const descricao = String(a.descricao || a.desc || a.titulo || a.acao).slice(0, 80);
 
     if (a.acao === 'receita' || a.acao === 'despesa') {
-        let metodo = metodoConhecido(a.metodo) || 'conta';
+        const metodo = metodoConhecido(a.metodo) || 'conta';
         let cartao = null;
         if (metodo === 'credito') {
             cartao = fin.acharCartao(conta, a.cartao)?.nome || (conta.cartoes.length === 1 ? conta.cartoes[0].nome : null);

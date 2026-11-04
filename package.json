@@ -23,6 +23,7 @@
     "instalar-boot": "node scripts/instalar-boot.js",
     "log": "tail -n 60 -f dados/bot.log",
     "test": "node test/rodar.js",
+    "lint": "eslint .",
     "modelos": "node scripts/listar-modelos.js"
   },
   "engines": {
@@ -38,5 +39,10 @@
   "allowScripts": {
     "@whiskeysockets/baileys@7.0.0-rc14": true,
     "protobufjs@7.6.6": true
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0"
   }
 }

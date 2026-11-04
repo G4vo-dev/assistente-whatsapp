@@ -22,7 +22,7 @@ function montarCsv(transacoes) {
             t.metodo, t.cartao || '', t.categoria, t.descricao, t.parcela ? `${t.parcela.atual}/${t.parcela.total}` : '',
         ].map(campo).join(';'));
     }
-    return `﻿${linhas.join('\r\n')}\r\n`;
+    return `\ufeff${linhas.join('\r\n')}\r\n`;
 }
 
 function acharTarefa(texto) {
