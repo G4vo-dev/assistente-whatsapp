@@ -139,4 +139,4 @@ Personal WhatsApp assistant in Node.js (runs even on an Android phone via Termux
 
 ## Licença
 
-[MIT](LICENSE) · feito por [Zet](https://github.com/G4vo-dev)
+[MIT](LICENSE) · feito por [Zet (Gustavo)](https://github.com/G4vo-dev)
