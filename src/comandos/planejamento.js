@@ -1,9 +1,8 @@
 const fin = require('../servicos/financas');
-const { depoisDeLancar } = require('./financas');
+const { depoisDeLancar } = require('../servicos/financas-texto');
+const { ehAdicionar, ehRemover } = require('./subcomandos');
 const { reais, lerValor, normalizar, barra, porcento, hojeISO, mesAtual, nomeDoMes } = require('../util/formato');
 
-const SUB_ADICIONAR = ['adicionar', 'add', 'novo', 'nova', 'criar'];
-const SUB_REMOVER = ['remover', 'apagar', 'excluir', 'del', 'rm'];
 const ICONE_PRIORIDADE = { alta: '🔴', media: '🟡', baixa: '🟢' };
 
 module.exports = {
@@ -19,7 +18,7 @@ module.exports = {
             async executar(ctx) {
                 const acao = normalizar(ctx.args[0]);
                 const p = ctx.prefixo;
-                if (SUB_ADICIONAR.includes(acao)) {
+                if (ehAdicionar(acao)) {
                     const valor = lerValor(ctx.args[1]);
                     let partes = ctx.args.slice(2);
                     let dia = null;
@@ -33,7 +32,7 @@ module.exports = {
                     const numero = fin.alterarConta(ctx.conta, (c) => c.fixos.push({ descricao, valor, ...(dia ? { dia } : {}) }));
                     return ctx.responder(`📌 fixo nº ${numero} adicionado: ${descricao} · ${reais(valor)}${dia ? ` · vence dia ${dia}` : ''}`);
                 }
-                if (SUB_REMOVER.includes(acao)) {
+                if (ehRemover(acao)) {
                     const n = parseInt(ctx.args[1], 10);
                     const removido = fin.alterarConta(ctx.conta, (c) => (n > 0 && c.fixos[n - 1] ? c.fixos.splice(n - 1, 1)[0] : null));
                     return ctx.responder(removido ? `🗑️ fixo removido: ${removido.descricao}` : `❌ número inválido. veja em ${p}fixo listar`);
@@ -65,7 +64,7 @@ module.exports = {
             async executar(ctx) {
                 const acao = normalizar(ctx.args[0]);
                 const p = ctx.prefixo;
-                if (SUB_ADICIONAR.includes(acao)) {
+                if (ehAdicionar(acao)) {
                     const valorAlvo = lerValor(ctx.args[1]);
                     const prioridade = fin.prioridadeValida(ctx.args[2]);
                     const titulo = ctx.args.slice(prioridade ? 3 : 2).join(' ');
@@ -89,7 +88,7 @@ module.exports = {
                     if (fracao >= 1) txt += '\n🎉 meta batida!';
                     return ctx.responder(txt);
                 }
-                if (SUB_REMOVER.includes(acao)) {
+                if (ehRemover(acao)) {
                     const n = parseInt(ctx.args[1], 10);
                     const removida = fin.alterarConta(ctx.conta, (c) => (n > 0 && c.metas[n - 1] ? c.metas.splice(n - 1, 1)[0] : null));
                     return ctx.responder(removida ? `🗑️ meta removida: ${removida.titulo}` : `❌ número inválido. veja em ${p}meta listar`);
@@ -115,7 +114,7 @@ module.exports = {
             exemplos: ['limite comida 400', 'limite', 'limite remover comida'],
             async executar(ctx) {
                 const p = ctx.prefixo;
-                if (SUB_REMOVER.includes(normalizar(ctx.args[0]))) {
+                if (ehRemover(ctx.args[0])) {
                     const removido = ctx.args[1] && fin.alterarConta(ctx.conta, (c) => fin.removerLimite(c, ctx.args[1]));
                     return ctx.responder(removido ? `🗑️ limite de *${removido.categoria}* removido.` : `❌ não achei esse limite. veja em ${p}limite`);
                 }

@@ -1,3 +1,6 @@
+const ia = require('../servicos/ia');
+const { IA_MODO_PRIVADO } = require('../config');
+
 module.exports = {
     titulo: 'ℹ️ *ajuda*',
     comandos: [
@@ -27,8 +30,6 @@ module.exports = {
             apelidos: ['termos', 'lgpd', 'dados'],
             descricao: 'o que o bot guarda, pra onde manda e como apagar',
             async executar(ctx) {
-                const ia = require('../servicos/ia');
-                const { IA_MODO_PRIVADO } = require('../config');
                 const p = ctx.prefixo;
                 const { provedores, filas } = ia.situacao();
                 const ligadas = provedores.filter((x) => x.ligado).map((x) => x.titulo).join(', ') || 'nenhuma';

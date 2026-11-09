@@ -60,4 +60,6 @@ module.exports = {
     AUDIO_AUTOMATICO: !/^(nao|não|false|0|off|desligado)$/i.test(String(process.env.AUDIO_AUTOMATICO || 'sim').trim()),
     // modo figurinha: depois de um #s, fotos e vídeos mandados nesse tempo viram figurinha
     SEGUNDOS_MODO_FIGURINHA: Number(process.env.SEGUNDOS_MODO_FIGURINHA) || 10,
+    // cidade do #clima quando você não digita nenhuma
+    CIDADE_PADRAO: String(process.env.CIDADE_PADRAO || '').trim(),
 };

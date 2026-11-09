@@ -2,13 +2,8 @@
 const ia = require('../servicos/ia');
 const { citadaDo, textoDo } = require('../util/mensagem');
 const { normalizar } = require('../util/formato');
-
-async function buscarJson(url) {
-    const resposta = await fetch(url, { headers: { 'User-Agent': 'assistente-whatsapp (bot pessoal)' }, signal: AbortSignal.timeout(15000) });
-    if (resposta.status === 404) return null;
-    if (!resposta.ok) throw new Error(`o site respondeu ${resposta.status}`);
-    return resposta.json();
-}
+const { buscarJson } = require('../util/web');
+const { CIDADE_PADRAO } = require('../config');
 
 // ---------- clima (Open-Meteo) ----------
 
@@ -108,7 +103,7 @@ module.exports = {
             descricao: 'temperatura agora e próximos dias',
             exemplos: ['clima são paulo', 'clima recife'],
             async executar(ctx) {
-                const cidade = ctx.texto || process.env.CIDADE_PADRAO;
+                const cidade = ctx.texto || CIDADE_PADRAO;
                 if (!cidade) return ctx.responder(`❌ diga a cidade. ex: ${ctx.prefixo}clima são paulo\n(dá pra fixar uma com CIDADE_PADRAO no .env)`);
                 await ctx.responder(await clima(cidade));
             },

@@ -1,5 +1,6 @@
 // Lembretes salvos em arquivo: continuam valendo mesmo se o bot reiniciar ou a conexão cair.
 const { ler, salvar } = require('./armazenamento');
+const { novoId } = require('../util/id');
 
 const ARQUIVO = 'lembretes.json';
 const timers = new Map();
@@ -42,7 +43,7 @@ async function disparar(id) {
 
 function criar(jid, minutos, texto) {
     const lembrete = {
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        id: novoId(),
         jid,
         quando: Date.now() + minutos * 60000,
         texto,

@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(legado, 'goals.json'), JSON.stringify({ [EU_LID]: [{ 
 
 const { tratarMensagem } = require('../src/roteador');
 const ia = require('../src/servicos/ia');
-const { montarGrafico } = require('../src/comandos/relatorios');
+const { montarGrafico } = require('../src/servicos/financas-texto');
 
 async function enviar(texto, key) {
     const bot = criarBot();

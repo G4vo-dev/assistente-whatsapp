@@ -1,5 +1,6 @@
 // Formato dos dados de finanças e conversão dos formatos antigos.
 const { arredondar, normalizar, lerData, isoDoDia } = require('../util/formato');
+const { novoId } = require('../util/id');
 
 function contaVazia() {
     return { transacoes: [], cartoes: [], fixos: [], metas: [], limites: [] };
@@ -11,10 +12,6 @@ function completarConta(conta) {
         if (!Array.isArray(conta[campo])) conta[campo] = [];
     }
     return conta;
-}
-
-function novoId() {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
 const METODOS = {
@@ -35,6 +32,11 @@ const METODOS = {
 
 function metodoConhecido(texto) {
     return METODOS[normalizar(texto)] || null;
+}
+
+function acharCartao(cartoes, nome) {
+    const alvo = normalizar(nome);
+    return alvo ? cartoes.find((c) => normalizar(c.nome) === alvo) || null : null;
 }
 
 // Converte datas antigas ("15/10", "15/10/26", ISO) para AAAA-MM-DD.
@@ -115,4 +117,4 @@ function mesclarContas(a, b) {
     return { transacoes, cartoes, fixos: [...a.fixos, ...b.fixos], metas: [...a.metas, ...b.metas], limites };
 }
 
-module.exports = { contaVazia, completarConta, novoId, metodoConhecido, normalizarTransacao, normalizarConta, mesclarContas };
+module.exports = { contaVazia, completarConta, metodoConhecido, acharCartao, normalizarTransacao, normalizarConta, mesclarContas };
