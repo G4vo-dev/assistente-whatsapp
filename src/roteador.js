@@ -91,9 +91,15 @@ async function tratarMensagem(bot, msg) {
 
     const comando = encontrarComando(nome);
     if (!comando) {
+        // fora da conversa com você mesmo, "#tbt" ou "#sextou" é hashtag, não comando: não responde
+        if (ctx.conta.chave !== 'eu') return;
         const parecido = sugerirComando(nome);
         const dica = parecido ? `você quis dizer *${config.PREFIXO}${parecido.nome}*? ` : '';
         return ctx.responder(`🤔 não conheço *${config.PREFIXO}${nome}*. ${dica}mande *${config.PREFIXO}menu* para ver os comandos.`);
+    }
+    // backup, restauração e avisos mexem nos dados de todas as conversas: só o dono usa
+    if (comando.soDono && !msg.key.fromMe) {
+        return ctx.responder(`🔒 só o dono do bot pode usar o ${config.PREFIXO}${comando.nome}.`);
     }
     await rodar(comando, ctx);
 }

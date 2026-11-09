@@ -38,9 +38,10 @@ module.exports = {
         {
             nome: 'avisos',
             apelidos: ['automaticos'],
+            soDono: true,
             uso: 'avisos [ligar | desligar | testar] [nome]',
             descricao: 'mensagens automáticas na conversa com você',
-            ajuda: 'nomes: fixos, semanal, mensal, backup. "testar" manda o aviso agora.',
+            ajuda: 'nomes: fixos, semanal, mensal, backup. "testar" manda o aviso agora. só o dono usa.',
             exemplos: ['avisos', 'avisos desligar backup', 'avisos testar semanal'],
             async executar(ctx) {
                 const acao = normalizar(ctx.args[0]);
@@ -62,8 +63,10 @@ module.exports = {
         },
         {
             nome: 'backup',
+            soDono: true,
             descricao: 'manda agora o arquivo de backup',
-            ajuda: 'o bot também manda sozinho todo dia às 22h quando algo mudou. guarde o arquivo: com ele você recupera tudo se trocar de celular.',
+            ajuda: 'o bot também manda sozinho todo dia às 22h quando algo mudou. guarde o arquivo: com ele você recupera tudo se trocar de celular. '
+                + 'só o dono usa, porque o arquivo tem as finanças de todas as conversas.',
             async executar(ctx) {
                 const { texto } = agenda().montarBackup();
                 await ctx.responder(agenda().mensagemDeBackup(texto, agenda().agoraEmBrasilia().iso));
@@ -71,10 +74,11 @@ module.exports = {
         },
         {
             nome: 'restaurar',
+            soDono: true,
             uso: 'restaurar confirmar',
             descricao: 'volta as finanças de um arquivo de backup',
             ajuda: 'responda o arquivo de backup (backup-assistente-....json) com #restaurar confirmar. '
-                + 'os dados atuais são guardados em dados/backups antes.',
+                + 'os dados atuais são guardados em dados/backups antes. só o dono usa.',
             async executar(ctx) {
                 const alvo = acharMidia(ctx.msg, ctx.conteudo, ['documentMessage', 'documentWithCaptionMessage']);
                 const nome = alvo?.info?.fileName || '';

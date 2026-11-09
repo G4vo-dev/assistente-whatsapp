@@ -58,18 +58,24 @@ async function transcreverAudio(dados, nome = 'audio.ogg', tipo = 'audio/ogg') {
     }
 }
 
-// Pega o primeiro array JSON de dentro da resposta da IA.
+function lerJsonEntre(texto, abre, fecha) {
+    const inicio = texto.indexOf(abre);
+    const fim = texto.lastIndexOf(fecha);
+    if (inicio === -1 || fim <= inicio) return undefined;
+    try {
+        return JSON.parse(texto.slice(inicio, fim + 1));
+    } catch {
+        return undefined;
+    }
+}
+
+// Pega a lista JSON de ações de dentro da resposta da IA. Se ela mandar uma ação sozinha ({"acao": ...}), vira lista de um item.
 function extrairListaJson(texto) {
     const limpo = String(texto || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json)?/gi, '');
-    const inicio = limpo.indexOf('[');
-    const fim = limpo.lastIndexOf(']');
-    if (inicio === -1 || fim <= inicio) return null;
-    try {
-        const lista = JSON.parse(limpo.slice(inicio, fim + 1));
-        return Array.isArray(lista) ? lista : null;
-    } catch {
-        return null;
-    }
+    const lista = lerJsonEntre(limpo, '[', ']');
+    if (Array.isArray(lista)) return lista;
+    const objeto = lerJsonEntre(limpo, '{', '}');
+    return objeto?.acao ? [objeto] : null;
 }
 
 module.exports = {

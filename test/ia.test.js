@@ -124,3 +124,12 @@ test('#ias mostra as IAs ligadas e a fila de cada tarefa', async () => {
     assert.ok(r.includes('💤 Groq') && r.includes('✅ Google Gemini · 1 resposta(s)'), r);
     assert.ok(r.includes('conversa: groq → gemini → mistral → openrouter') && r.includes('finanças: groq → gemini → mistral') && r.includes('pdf: gemini'), r);
 });
+
+test('a IA pode mandar um objeto sozinho ou a data em AAAA-MM-DD', () => {
+    assert.deepStrictEqual(ia.extrairListaJson('```json\n{"acao":"despesa","valor":30}\n```'), [{ acao: 'despesa', valor: 30 }]);
+    assert.deepStrictEqual(ia.extrairListaJson('[{"acao":"receita","valor":5}]'), [{ acao: 'receita', valor: 5 }]);
+    assert.strictEqual(ia.extrairListaJson('não entendi'), null);
+    const { lerData } = require('../src/util/formato');
+    assert.strictEqual(lerData('2026-11-05'), '2026-11-05');
+    assert.strictEqual(lerData('2026-02-30'), null);
+});

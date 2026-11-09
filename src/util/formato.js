@@ -59,6 +59,12 @@ function lerData(texto, anoPadrao) {
         const dias = t === 'ontem' ? 1 : 2;
         return isoDoDia(new Date(Date.now() - dias * 86400000));
     }
+    // AAAA-MM-DD (as IAs às vezes mandam a data assim)
+    const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+        const [ano, mes, dia] = iso.slice(1).map(Number);
+        return dataValida(ano, mes, dia) ? montarISO(ano, mes, dia) : null;
+    }
     const m = t.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2}|\d{4}))?$/);
     if (!m) return null;
     const dia = Number(m[1]);

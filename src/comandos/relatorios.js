@@ -29,8 +29,10 @@ function montarGrafico(conta, anoMes) {
     }
 
     if (fixos) {
-        const total = fixos + mes.saidas;
-        const fracaoFixos = fixos / total;
+        // o fixo pago com #fixo pagar já está nas saídas (categoria "fixos"): não conta duas vezes
+        const fixosPagos = mes.porCategoria.find((g) => normalizar(g.categoria) === 'fixos')?.total || 0;
+        const variaveis = Math.max(0, mes.saidas - fixosPagos);
+        const fracaoFixos = fixos / (fixos + variaveis);
         const blocos = Math.round(fracaoFixos * 10);
         txt += `\n📌 *fixos x variáveis* (fixos cadastrados: ${reais(fixos)}/mês)\n`;
         txt += `${'🟩'.repeat(blocos)}${'🟥'.repeat(10 - blocos)}\n🟩 fixos ${porcento(fracaoFixos)} · 🟥 variáveis ${porcento(1 - fracaoFixos)}\n`;
@@ -102,7 +104,8 @@ module.exports = {
             ajuda: '"#resetfin confirmar" apaga só os lançamentos (cartões, fixos, metas e limites ficam). '
                 + '"#resetfin tudo confirmar" zera a carteira desta conversa inteira. '
                 + '"#resetfin geral confirmar" zera as carteiras de todas as conversas, inclusive grupos (só você pode). '
-                + 'antes de apagar, o bot manda o arquivo de backup na conversa: dá para desfazer com #restaurar.',
+                + 'antes de apagar, o bot manda o arquivo de backup para o dono: dá para desfazer com #restaurar. '
+                + 'quando outra pessoa apaga, a cópia fica guardada com o dono.',
             exemplos: ['resetfin', 'resetfin tudo confirmar'],
             async executar(ctx) {
                 const p = ctx.prefixo;
@@ -129,21 +132,28 @@ module.exports = {
                     return ctx.responder(`⚠️ isso apaga ${alvo}.\npara confirmar, mande: *${p}resetfin ${modo} confirmar*`);
                 }
 
-                // cópia de segurança na própria conversa, antes de apagar
-                const agenda = require('../agenda');
-                const { texto } = agenda.montarBackup();
-                await ctx.responder(agenda.mensagemDeBackup(texto, agenda.agoraEmBrasilia().iso));
+                // cópia de segurança na própria conversa, antes de apagar. o arquivo tem as finanças de
+                // todas as conversas, então só vai para o dono; para os outros, a cópia fica em dados/backups.
+                const dono = ctx.msg.key.fromMe;
+                if (dono) {
+                    const agenda = require('../agenda');
+                    const { texto } = agenda.montarBackup();
+                    await ctx.responder(agenda.mensagemDeBackup(texto, agenda.agoraEmBrasilia().iso));
+                }
+                const desfazer = dono
+                    ? `para desfazer: responda o backup acima com *${p}restaurar confirmar*`
+                    : 'uma cópia de segurança ficou guardada com o dono do bot, caso precise desfazer.';
 
                 if (modo === 'lancamentos') {
                     const { quantidade } = fin.resetarLancamentos(ctx.conta);
-                    return ctx.responder(`🔄 ${quantidade} lançamento(s) apagado(s). cartões, fixos, metas e limites continuam.\npara desfazer: responda o backup acima com *${p}restaurar confirmar*`);
+                    return ctx.responder(`🔄 ${quantidade} lançamento(s) apagado(s). cartões, fixos, metas e limites continuam.\n${desfazer}`);
                 }
                 if (modo === 'tudo') {
                     const { apagado } = fin.resetarConta(ctx.conta);
-                    return ctx.responder(`🧹 finanças desta conversa zeradas: ${apagado.transacoes} lançamentos, ${apagado.cartoes} cartões, ${apagado.fixos} fixos, ${apagado.metas} metas e ${apagado.limites} limites.\npara desfazer: responda o backup acima com *${p}restaurar confirmar*`);
+                    return ctx.responder(`🧹 finanças desta conversa zeradas: ${apagado.transacoes} lançamentos, ${apagado.cartoes} cartões, ${apagado.fixos} fixos, ${apagado.metas} metas e ${apagado.limites} limites.\n${desfazer}`);
                 }
                 const { carteiras, lancamentos } = fin.resetarTodasAsContas();
-                await ctx.responder(`🧹 finanças zeradas em ${carteiras} conversa(s), ${lancamentos} lançamento(s) no total. começando do zero!\npara desfazer: responda o backup acima com *${p}restaurar confirmar*`);
+                await ctx.responder(`🧹 finanças zeradas em ${carteiras} conversa(s), ${lancamentos} lançamento(s) no total. começando do zero!\n${desfazer}`);
             },
         },
     ],
