@@ -26,6 +26,7 @@ fs.writeFileSync(path.join(legado, 'goals.json'), JSON.stringify({ [EU_LID]: [{ 
 
 const { tratarMensagem } = require('../src/roteador');
 const ia = require('../src/servicos/ia');
+const { montarGrafico } = require('../src/comandos/relatorios');
 
 async function enviar(texto, key) {
     const bot = criarBot();
@@ -182,7 +183,6 @@ test('resetfin tudo zera a carteira; geral zera todas as conversas; backup vem a
 });
 
 test('fixos x variáveis não conta duas vezes o fixo que já foi pago', () => {
-    const { montarGrafico } = require('../src/comandos/relatorios');
     const conta = {
         cartoes: [], metas: [], limites: [],
         fixos: [{ descricao: 'aluguel', valor: 1000 }],

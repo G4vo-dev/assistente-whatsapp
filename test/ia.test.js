@@ -12,6 +12,7 @@ const fila = require('../src/servicos/ia/fila');
 const groq = require('../src/servicos/ia/groq');
 const midia = require('../src/servicos/midia');
 const { tratarMensagem } = require('../src/roteador');
+const { lerData } = require('../src/util/formato');
 
 const originais = { groq: { ...groq }, midia: { ...midia }, fetch: global.fetch };
 let pedidos = [];
@@ -129,7 +130,6 @@ test('a IA pode mandar um objeto sozinho ou a data em AAAA-MM-DD', () => {
     assert.deepStrictEqual(ia.extrairListaJson('```json\n{"acao":"despesa","valor":30}\n```'), [{ acao: 'despesa', valor: 30 }]);
     assert.deepStrictEqual(ia.extrairListaJson('[{"acao":"receita","valor":5}]'), [{ acao: 'receita', valor: 5 }]);
     assert.strictEqual(ia.extrairListaJson('não entendi'), null);
-    const { lerData } = require('../src/util/formato');
     assert.strictEqual(lerData('2026-11-05'), '2026-11-05');
     assert.strictEqual(lerData('2026-02-30'), null);
 });

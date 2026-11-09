@@ -51,7 +51,7 @@ function montarISO(ano, mes, dia) {
     return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
-// Entende "hoje", "ontem", "15/10", "15/10/26" e "15/10/2026". Devolve AAAA-MM-DD ou null.
+// Entende "hoje", "ontem", "15/10", "15/10/26", "15/10/2026" e "2026-10-15". Devolve AAAA-MM-DD ou null.
 function lerData(texto, anoPadrao) {
     const t = normalizar(texto);
     if (t === 'hoje') return hojeISO();
@@ -59,7 +59,6 @@ function lerData(texto, anoPadrao) {
         const dias = t === 'ontem' ? 1 : 2;
         return isoDoDia(new Date(Date.now() - dias * 86400000));
     }
-    // AAAA-MM-DD (as IAs às vezes mandam a data assim)
     const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (iso) {
         const [ano, mes, dia] = iso.slice(1).map(Number);

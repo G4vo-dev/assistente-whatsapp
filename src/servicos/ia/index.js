@@ -69,7 +69,7 @@ function lerJsonEntre(texto, abre, fecha) {
     }
 }
 
-// Pega a lista JSON de ações de dentro da resposta da IA. Se ela mandar uma ação sozinha ({"acao": ...}), vira lista de um item.
+// Pega a lista JSON de ações de dentro da resposta da IA (uma ação sozinha vira lista de um item).
 function extrairListaJson(texto) {
     const limpo = String(texto || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json)?/gi, '');
     const lista = lerJsonEntre(limpo, '[', ']');

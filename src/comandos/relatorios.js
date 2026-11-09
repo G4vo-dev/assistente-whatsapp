@@ -132,8 +132,7 @@ module.exports = {
                     return ctx.responder(`⚠️ isso apaga ${alvo}.\npara confirmar, mande: *${p}resetfin ${modo} confirmar*`);
                 }
 
-                // cópia de segurança na própria conversa, antes de apagar. o arquivo tem as finanças de
-                // todas as conversas, então só vai para o dono; para os outros, a cópia fica em dados/backups.
+                // o backup tem as finanças de todas as conversas: só vai para o dono (a cópia fica em dados/backups)
                 const dono = ctx.msg.key.fromMe;
                 if (dono) {
                     const agenda = require('../agenda');
