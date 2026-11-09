@@ -9,11 +9,19 @@ const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 
 const executar = promisify(execFile);
 const LIMITE_LINK = 50 * 1024 * 1024; // 50 MB para arquivos baixados por link direto
-const LIMITE_FIGURINHA_ANIMADA = 1024 * 1024; // o WhatsApp recusa figurinha animada muito pesada
-const SEGUNDOS_FIGURINHA_ANIMADA = 8;
+const LIMITE_FIGURINHA_ANIMADA = 1024 * 1024; // o WhatsApp descarta figurinha animada mais pesada que isso
 const LIMITE_TEMPO_MS = 3 * 60 * 1000; // no celular o ffmpeg é lento; mais que isso, desiste
 const CODECS_DE_IMAGEM = ['mjpeg', 'png', 'bmp', 'tiff', 'webp', 'jpeg2000', 'jpegls'];
-const AJUSTE_512 = 'scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0';
+// Tentativas da figurinha animada, da mais bonita para a mais leve: qualidade, quadros por segundo,
+// tamanho do desenho dentro da tela de 512x512 e segundos de vídeo.
+const ETAPAS_ANIMADA = [
+    { qualidade: 60, fps: 15, lado: 512, segundos: 8 },
+    { qualidade: 40, fps: 12, lado: 512, segundos: 8 },
+    { qualidade: 25, fps: 10, lado: 512, segundos: 8 },
+    { qualidade: 20, fps: 10, lado: 384, segundos: 6 },
+    { qualidade: 15, fps: 8, lado: 320, segundos: 5 },
+    { qualidade: 10, fps: 6, lado: 256, segundos: 3 },
+];
 const FONTE = path.join(__dirname, '..', '..', 'assets', 'DejaVuSans-Bold.ttf');
 
 class ErroMidia extends Error {}
@@ -101,6 +109,11 @@ async function baixarDoLink(url, pasta) {
 
 // ---------- figurinha ----------
 
+// Encaixa a imagem num quadrado de "lado" pixels, sem esticar, no meio de uma tela transparente de 512x512.
+function ajuste(lado) {
+    return `scale=${lado}:${lado}:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0`;
+}
+
 async function ehAnimado(arquivo) {
     try {
         const { stdout } = await rodar('ffprobe', [
@@ -186,18 +199,18 @@ async function paraFigurinha(entrada, pasta, { texto = '' } = {}) {
     const saida = path.join(pasta, 'figurinha.webp');
     const comTexto = texto ? filtroDeTexto(texto, pasta) : '';
     if (!(await ehAnimado(entrada))) {
-        await rodar('ffmpeg', ['-y', '-loglevel', 'error', '-i', entrada, '-vf', AJUSTE_512 + comTexto,
+        await rodar('ffmpeg', ['-y', '-loglevel', 'error', '-i', entrada, '-vf', ajuste(512) + comTexto,
             '-frames:v', '1', '-c:v', 'libwebp', '-quality', '80', saida]);
         return fs.readFileSync(saida);
     }
-    // animada: vai baixando a qualidade até caber no limite do WhatsApp
-    for (const [qualidade, fps] of [[60, 15], [40, 12], [25, 10]]) {
-        await rodar('ffmpeg', ['-y', '-loglevel', 'error', '-t', String(SEGUNDOS_FIGURINHA_ANIMADA), '-i', entrada,
-            '-vf', `fps=${fps},${AJUSTE_512}${comTexto}`, '-c:v', 'libwebp', '-loop', '0', '-an',
+    // animada: vai deixando mais leve até caber no limite do WhatsApp
+    for (const { qualidade, fps, lado, segundos } of ETAPAS_ANIMADA) {
+        await rodar('ffmpeg', ['-y', '-loglevel', 'error', '-t', String(segundos), '-i', entrada,
+            '-vf', `fps=${fps},${ajuste(lado)}${comTexto}`, '-c:v', 'libwebp', '-loop', '0', '-an',
             '-quality', String(qualidade), '-compression_level', '4', saida]);
-        if (fs.statSync(saida).size <= LIMITE_FIGURINHA_ANIMADA) break;
+        if (fs.statSync(saida).size <= LIMITE_FIGURINHA_ANIMADA) return fs.readFileSync(saida);
     }
-    return fs.readFileSync(saida);
+    throw new ErroMidia('esse vídeo ficou pesado demais para virar figurinha (máximo 1 MB). tente um trecho mais curto ou com menos movimento.');
 }
 
 // Figurinha (webp parada) -> foto PNG.

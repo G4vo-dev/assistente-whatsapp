@@ -83,12 +83,6 @@ async function tratarMensagem(bot, msg) {
     if (!nome) return;
     const ctx = criarContexto(bot, msg, conteudo, { resto, args });
 
-    // quem não é o dono recebe uma vez o aviso de privacidade (LGPD)
-    const autor = numerosDoAutor(msg.key)[0];
-    if (!msg.key.fromMe && autor && avisos.primeiraVez(`privacidade:${autor}`)) {
-        await ctx.responder(avisos.PRIVACIDADE_PARA_OUTROS);
-    }
-
     const comando = encontrarComando(nome);
     if (!comando) {
         // fora da conversa com você mesmo, "#tbt" ou "#sextou" é hashtag, não comando: não responde
@@ -97,6 +91,13 @@ async function tratarMensagem(bot, msg) {
         const dica = parecido ? `você quis dizer *${config.PREFIXO}${parecido.nome}*? ` : '';
         return ctx.responder(`🤔 não conheço *${config.PREFIXO}${nome}*. ${dica}mande *${config.PREFIXO}menu* para ver os comandos.`);
     }
+
+    // quem não é o dono recebe uma vez o aviso de privacidade (LGPD)
+    const autor = numerosDoAutor(msg.key)[0];
+    if (!msg.key.fromMe && autor && avisos.primeiraVez(`privacidade:${autor}`)) {
+        await ctx.responder(avisos.PRIVACIDADE_PARA_OUTROS);
+    }
+
     if (comando.soDono && !msg.key.fromMe) {
         return ctx.responder(`🔒 só o dono do bot pode usar o ${config.PREFIXO}${comando.nome}.`);
     }

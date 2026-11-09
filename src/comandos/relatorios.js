@@ -33,8 +33,11 @@ module.exports = {
                     + 'Seja direto, use valores em reais e no máximo 12 linhas.',
                     { sistema: 'você é um consultor financeiro pessoal brasileiro, prático e gentil. responda em português, com formatação do WhatsApp.', tarefa: 'financas' },
                 );
-                const aviso = resposta.startsWith('❌') ? '' : '\n\n⚠️ _conteúdo gerado por IA, só para informação. não é recomendação de investimento nem consultoria financeira; a IA pode errar._';
-                await ctx.responder(`💡 *dicas financeiras*\n\n${resposta}${aviso}`, { citar: true });
+                if (ia.ehFalha(resposta)) {
+                    await ctx.reagir('❌');
+                    return ctx.responder(resposta, { citar: true });
+                }
+                await ctx.responder(`💡 *dicas financeiras*\n\n${resposta}\n\n⚠️ _conteúdo gerado por IA, só para informação. não é recomendação de investimento nem consultoria financeira; a IA pode errar._`, { citar: true });
                 await ctx.reagir('✅');
             },
         },

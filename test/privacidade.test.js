@@ -1,5 +1,5 @@
 // Testes de privacidade e avisos: modo privado, #privacidade, aviso para outros usuários, direitos autorais e avisos financeiros.
-process.env.PERMITIDOS_TESTE = '5521977776666';
+process.env.PERMITIDOS_TESTE = '5521977776666,5531955554444';
 process.env.GROQ_TESTE = 'chave-groq';
 process.env.GEMINI_TESTE = 'chave-gemini';
 const { criarBot, mensagem, limpar } = require('./ajudante');
@@ -92,4 +92,11 @@ test('comando desconhecido fora da conversa com você mesmo fica em silêncio (h
     assert.strictEqual((await enviar('#sextou', AMIGO)).textos().filter((t) => t.includes('não conheço')).length, 0);
     assert.ok((await enviar('#tbt')).ultima().includes('não conheço'), 'na conversa com você mesmo continua avisando');
     assert.match((await enviar('#ping', grupo)).ultima(), /^pong/, 'comandos que existem continuam funcionando no grupo');
+});
+
+test('o aviso de privacidade só aparece quando a pessoa usa um comando que existe', async () => {
+    const novo = { fromMe: false, remoteJid: '5531955554444@s.whatsapp.net' };
+    assert.strictEqual((await enviar('#sextou', novo)).enviadas.length, 0, 'hashtag não ganha aviso');
+    const textos = (await enviar('#ping', novo)).textos();
+    assert.ok(textos.length === 2 && textos[0].includes('bot pessoal') && textos[1].startsWith('pong'), textos.join(' | '));
 });

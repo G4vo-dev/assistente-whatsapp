@@ -12,12 +12,18 @@ function montarCsv(transacoes) {
         const texto = String(valor ?? '');
         return /[;"\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
     };
+    // texto que começa com = + - @ vira fórmula na planilha (ex.: descrição lida de um comprovante); o ' impede isso
+    const textoLivre = (valor) => {
+        const texto = String(valor ?? '');
+        return /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+    };
     const linhas = [['nº', 'data', 'tipo', 'valor', 'método', 'cartão', 'categoria', 'descrição', 'parcela'].join(';')];
     for (const { t, numero } of transacoes) {
         const [ano, mes, dia] = t.data.split('-');
         linhas.push([
             numero, `${dia}/${mes}/${ano}`, t.tipo, (t.tipo === 'despesa' ? -t.valor : t.valor).toFixed(2).replace('.', ','),
-            t.metodo, t.cartao || '', t.categoria, t.descricao, t.parcela ? `${t.parcela.atual}/${t.parcela.total}` : '',
+            textoLivre(t.metodo), textoLivre(t.cartao), textoLivre(t.categoria), textoLivre(t.descricao),
+            t.parcela ? `${t.parcela.atual}/${t.parcela.total}` : '',
         ].map(campo).join(';'));
     }
     return `\ufeff${linhas.join('\r\n')}\r\n`;
@@ -51,9 +57,10 @@ module.exports = {
                         agenda.ligarDesligar(tarefa.id, acao === 'ligar');
                         return ctx.responder(`${acao === 'ligar' ? '✅' : '⛔'} ${tarefa.nome}: ${acao === 'ligar' ? 'ligado' : 'desligado'}.`);
                     }
-                    const conteudo = agenda.conteudoDaTarefa(tarefa.id, ctx.bot, agoraEmBrasilia(), { forcar: true });
-                    if (!conteudo) return ctx.responder(`📭 ${tarefa.nome}: nada para avisar agora.`);
-                    return ctx.responder(conteudo);
+                    const pronta = agenda.prepararTarefa(tarefa.id, ctx.bot, agoraEmBrasilia(), { forcar: true });
+                    if (!pronta) return ctx.responder(`📭 ${tarefa.nome}: nada para avisar agora.`);
+                    await ctx.responder(pronta.mensagem);
+                    return pronta.depoisDeEnviar?.();
                 }
                 const linhas = agenda.listarTarefas().map((t) => `${t.ligada ? '✅' : '⛔'} *${t.id}* · ${t.nome} (${t.quando})`);
                 await ctx.responder(`⏰ *avisos automáticos*\nvão para a conversa com você mesmo.\n\n${linhas.join('\n')}\n\npara mudar: ${p}avisos desligar [nome]\npara ver agora: ${p}avisos testar [nome]`);

@@ -12,8 +12,9 @@ function comandoDeIA({ nome, apelidos, uso, descricao, exemplo, sistema, rodape 
             if (!ctx.texto) return ctx.responder(`❌ escreva a pergunta. ex: ${ctx.prefixo}${nome} ${exemplo}`);
             await ctx.reagir('⏳');
             const resposta = await ia.perguntarIA(ctx.texto, sistema ? { sistema } : undefined);
-            await ctx.responder(rodape && !resposta.startsWith('❌') ? `${resposta}\n\n${rodape}` : resposta, { citar: true });
-            await ctx.reagir('✅');
+            const falhou = ia.ehFalha(resposta);
+            await ctx.responder(rodape && !falhou ? `${resposta}\n\n${rodape}` : resposta, { citar: true });
+            await ctx.reagir(falhou ? '❌' : '✅');
         },
     };
 }

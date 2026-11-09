@@ -138,8 +138,9 @@ module.exports = {
                     sistema: 'você é um tradutor profissional. mantenha o tom, gírias e emojis do original.',
                     temperatura: 0.2,
                 });
-                await ctx.responder(`🌎 ${resposta}`, { citar: true });
-                await ctx.reagir('✅');
+                const falhou = ia.ehFalha(resposta);
+                await ctx.responder(falhou ? resposta : `🌎 ${resposta}`, { citar: true });
+                await ctx.reagir(falhou ? '❌' : '✅');
             },
         },
         {

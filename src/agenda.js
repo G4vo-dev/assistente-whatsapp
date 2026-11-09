@@ -81,21 +81,18 @@ function listarTarefas() {
 
 // ---------- execução ----------
 
-// Gera a mensagem de uma tarefa (ou null se não há nada a dizer).
-function conteudoDaTarefa(id, bot, agora, { forcar = false } = {}) {
-    const conta = fin.lerConta(carteiraPropria(bot));
-    if (id === 'fixos') return avisoDeFixos(conta, agora);
-    if (id === 'semanal') return resumoDaSemana(conta, agora);
-    if (id === 'mensal') return resumoDoMesPassado(conta, agora);
+// Prepara a mensagem de uma tarefa: { mensagem, depoisDeEnviar } ou null se não há nada a dizer.
+function prepararTarefa(id, bot, agora, { forcar = false } = {}) {
     if (id === 'backup') {
         const { texto, assinatura } = backup.montarBackup();
         if (!forcar && assinatura === estado().assinaturaBackup) return null;
-        const e = estado();
-        e.assinaturaBackup = assinatura;
-        salvar(ARQUIVO, e);
-        return backup.mensagemDeBackup(texto, agora.iso);
+        // só anota o backup como enviado depois que o envio dá certo; se falhar, ele sai de novo no dia seguinte
+        const depoisDeEnviar = () => salvar(ARQUIVO, { ...estado(), assinaturaBackup: assinatura });
+        return { mensagem: backup.mensagemDeBackup(texto, agora.iso), depoisDeEnviar };
     }
-    return null;
+    const montar = { fixos: avisoDeFixos, semanal: resumoDaSemana, mensal: resumoDoMesPassado }[id];
+    const texto = montar ? montar(fin.lerConta(carteiraPropria(bot)), agora) : null;
+    return texto ? { mensagem: { text: texto } } : null;
 }
 
 function deveRodar(tarefa, agora, e) {
@@ -123,9 +120,10 @@ async function verificar(bot, data = new Date()) {
             e.ultimas[tarefa.id] = agora.iso;
             salvar(ARQUIVO, e);
             try {
-                const conteudo = conteudoDaTarefa(tarefa.id, bot, agora);
-                if (conteudo) {
-                    await enviar(bot, destino, typeof conteudo === 'string' ? { text: conteudo } : conteudo);
+                const pronta = prepararTarefa(tarefa.id, bot, agora);
+                if (pronta) {
+                    await enviar(bot, destino, pronta.mensagem);
+                    pronta.depoisDeEnviar?.();
                     feitas.push(tarefa.id);
                 }
             } catch (erro) {
@@ -152,4 +150,4 @@ function parar() {
     intervalo = null;
 }
 
-module.exports = { iniciar, parar, verificar, listarTarefas, ligarDesligar, conteudoDaTarefa, TAREFAS };
+module.exports = { iniciar, parar, verificar, listarTarefas, ligarDesligar, prepararTarefa, TAREFAS };

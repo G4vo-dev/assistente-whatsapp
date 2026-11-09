@@ -10,7 +10,9 @@ const { reais, lerValor, lerData, hojeISO, dataCurta, normalizar } = require('..
 const SISTEMA_JSON = 'você converte frases em JSON. responda apenas com JSON válido.';
 
 // Palavras que indicam que o áudio fala de dinheiro.
-const PALAVRAS_DE_DINHEIRO = /\b(gastei|gasto|paguei|pagar|comprei|compra|recebi|ganhei|caiu|despesa|receita|parcel\w*|pix|credito|debito|cartao|reais|real|conto|contos|fatura|fixo|meta|salario)\b|r\$|\d+\s*(reais|conto)/;
+const PALAVRAS_DE_DINHEIRO = new RegExp('\\b(gastei|gasto|paguei|pagar|comprei|compra|recebi|ganhei|caiu|despesa|receita|parcel\\w*|pix|credito|debito|cartao'
+    + '|reais|real|conto|contos|pila|grana|fatura|fixo|meta|salario|transferi|transferencia|vendi|depositei|saquei|investi|emprestei|boleto)\\b'
+    + '|r\\$|\\d+\\s*(reais|conto)');
 
 function falaDeDinheiro(texto) {
     return PALAVRAS_DE_DINHEIRO.test(normalizar(texto));
@@ -50,8 +52,9 @@ function aplicarAcao(conta, a, novas = []) {
     const valor = typeof a.valor === 'number' ? Math.round(a.valor * 100) / 100 : lerValor(a.valor);
     if (!(valor > 0)) return `⚠️ ignorei "${a.descricao || a.acao}": valor inválido`;
     const descricao = String(a.descricao || a.desc || a.titulo || a.acao).slice(0, 80);
+    const acao = normalizar(a.acao);
 
-    if (a.acao === 'receita' || a.acao === 'despesa') {
+    if (acao === 'receita' || acao === 'despesa') {
         const metodo = metodoConhecido(a.metodo) || 'conta';
         let cartao = null;
         if (metodo === 'credito') {
@@ -59,7 +62,7 @@ function aplicarAcao(conta, a, novas = []) {
             if (!cartao) return `⚠️ ignorei "${descricao}": não sei em qual cartão de crédito`;
         }
         const dados = {
-            tipo: a.acao, valor, metodo, cartao,
+            tipo: acao, valor, metodo, cartao,
             categoria: String(a.categoria || 'outros').split(/\s+/)[0],
             data: lerData(a.data) || hojeISO(),
             descricao,
@@ -70,13 +73,13 @@ function aplicarAcao(conta, a, novas = []) {
         const { transacao, numero } = criadas[0];
         const forma = cartao ? `💳 ${cartao}` : metodo;
         const vezes = parcelas > 1 ? ` · ${parcelas}x de ${reais(transacao.valor)}` : '';
-        return `${a.acao === 'receita' ? '🟢' : '🔴'} nº ${numero} ${transacao.descricao} · ${reais(valor)}${vezes} · ${forma} · ${dataCurta(transacao.data)}`;
+        return `${acao === 'receita' ? '🟢' : '🔴'} nº ${numero} ${transacao.descricao} · ${reais(valor)}${vezes} · ${forma} · ${dataCurta(transacao.data)}`;
     }
-    if (a.acao === 'fixo') {
+    if (acao === 'fixo') {
         conta.fixos.push({ descricao, valor });
         return `📌 fixo: ${descricao} · ${reais(valor)}/mês`;
     }
-    if (a.acao === 'meta') {
+    if (acao === 'meta') {
         const prioridade = fin.prioridadeValida(a.prioridade) || 'media';
         conta.metas.push({ titulo: descricao, valorAlvo: valor, guardado: 0, prioridade, criadaEm: new Date().toISOString() });
         return `🎯 meta: ${descricao} · ${reais(valor)} · ${prioridade}`;

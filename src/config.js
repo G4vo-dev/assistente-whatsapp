@@ -13,6 +13,13 @@ function lista(texto, padrao) {
 const MODO_PRIVADO = /^(sim|true|1|on|ligado)$/i.test(String(process.env.IA_MODO_PRIVADO || '').trim());
 const privada = (filas) => (MODO_PRIVADO ? filas.filter((nome) => nome === 'groq') : filas);
 
+// Número do .env (0 ou mais); vazio ou inválido usa o padrão.
+function numero(texto, padrao) {
+    const limpo = String(texto ?? '').trim();
+    const valor = Number(limpo);
+    return limpo !== '' && Number.isFinite(valor) && valor >= 0 ? valor : padrao;
+}
+
 function somenteDigitos(texto) {
     return String(texto || '').replace(/\D/g, '');
 }
@@ -58,8 +65,8 @@ module.exports = {
     IA_MODO_PRIVADO: MODO_PRIVADO,
     // áudio mandado na conversa com você mesmo é transcrito (e vira lançamento se for gasto/ganho)
     AUDIO_AUTOMATICO: !/^(nao|não|false|0|off|desligado)$/i.test(String(process.env.AUDIO_AUTOMATICO || 'sim').trim()),
-    // modo figurinha: depois de um #s, fotos e vídeos mandados nesse tempo viram figurinha
-    SEGUNDOS_MODO_FIGURINHA: Number(process.env.SEGUNDOS_MODO_FIGURINHA) || 10,
+    // modo figurinha: depois de um #s, fotos e vídeos mandados nesse tempo viram figurinha (0 desliga)
+    SEGUNDOS_MODO_FIGURINHA: numero(process.env.SEGUNDOS_MODO_FIGURINHA, 10),
     // cidade do #clima quando você não digita nenhuma
     CIDADE_PADRAO: String(process.env.CIDADE_PADRAO || '').trim(),
 };

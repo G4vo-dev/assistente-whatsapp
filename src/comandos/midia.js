@@ -55,8 +55,8 @@ module.exports = {
             apelidos: ['sticker', 'figurinha', 'fig', 'f'],
             uso: 's [texto] [links]',
             descricao: 'figurinha de foto, vídeo, gif ou link',
-            ajuda: `mande a foto/vídeo com a legenda #s, responda uma mídia com #s, ou mande #s com até 10 links. `
-                + `depois de um #s, as fotos e vídeos que você mandar na conversa em até ${SEGUNDOS_MODO_FIGURINHA}s também viram figurinha.`,
+            ajuda: 'mande a foto/vídeo com a legenda #s, responda uma mídia com #s, ou mande #s com até 10 links.'
+                + (SEGUNDOS_MODO_FIGURINHA ? ` depois de um #s, as fotos e vídeos que você mandar na conversa em até ${SEGUNDOS_MODO_FIGURINHA}s também viram figurinha.` : ''),
             exemplos: ['s (na legenda da foto)', 's quando o bot funciona (texto embaixo da figurinha)', 's https://x.com/usuario/status/123'],
             async executar(ctx) {
                 const fontes = [];

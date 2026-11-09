@@ -16,7 +16,14 @@ function limparResposta(texto) {
         .replace(/<think>[\s\S]*?(<\/think>|$)/gi, '')
         .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')
         .replace(/\*\*(.+?)\*\*/g, '*$1*')
+        // [texto](link) não vira link no WhatsApp: fica "texto (link)"
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, rotulo, link) => (rotulo === link ? link : `${rotulo} (${link})`))
         .trim();
+}
+
+// As respostas de erro das funções abaixo começam com ❌ (assim o comando sabe que não deu certo).
+function ehFalha(resposta) {
+    return String(resposta || '').startsWith('❌');
 }
 
 function mensagemDeFalha(tarefa, erro) {
@@ -79,6 +86,6 @@ function extrairListaJson(texto) {
 }
 
 module.exports = {
-    perguntarIA, perguntarSobreImagem, transcreverAudio, extrairListaJson, limparResposta, iaLigada,
+    perguntarIA, perguntarSobreImagem, transcreverAudio, extrairListaJson, limparResposta, iaLigada, ehFalha,
     situacao: fila.situacao, SEM_CHAVE,
 };

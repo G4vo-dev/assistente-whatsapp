@@ -8,6 +8,7 @@ const { tratarMensagem } = require('../src/roteador');
 const agenda = require('../src/agenda');
 const ia = require('../src/servicos/ia');
 const midia = require('../src/servicos/midia');
+const { montarCsv } = require('../src/comandos/dados');
 
 const originais = { ia: { ...ia }, midia: { ...midia }, fetch: global.fetch };
 test.afterEach(() => {
@@ -164,4 +165,41 @@ test('#img transforma figurinha parada em foto', async () => {
     assert.strictEqual(bot.enviadas.at(-1).conteudo.image.toString(), 'png');
     assert.ok((await enviar('', {}, respondendo('#img', { stickerMessage: { isAnimated: true } }))).ultima().includes('animada'));
     assert.ok((await enviar('#img')).ultima().includes('responda uma figurinha'));
+});
+
+test('backup que não conseguiu ser enviado sai de novo no dia seguinte', async () => {
+    await enviar('#despesa 12 pix teste backup novo');
+    const semConexao = criarBot();
+    semConexao.sendMessage = async () => { throw new Error('conexão caiu'); };
+    const erroOriginal = console.error;
+    console.error = () => {}; // o aviso "backup falhou" é esperado aqui
+    try {
+        // 04/01/2027 às 22h30: o envio falha
+        assert.deepStrictEqual(await agenda.verificar(semConexao, new Date('2027-01-05T01:30:00Z')), []);
+    } finally {
+        console.error = erroOriginal;
+    }
+    // 05/01 às 22h30, com a conexão de volta: o backup sai, mesmo sem nada novo nas finanças
+    const bot = criarBot();
+    assert.deepStrictEqual(await agenda.verificar(bot, new Date('2027-01-06T01:30:00Z')), ['backup']);
+    assert.strictEqual(bot.enviadas.at(-1).conteudo.fileName, 'backup-assistente-2027-01-05.json');
+});
+
+test('#exportar protege a planilha de fórmulas escondidas no texto', () => {
+    const csv = montarCsv([
+        { numero: 1, t: { data: '2026-11-01', tipo: 'despesa', valor: 5, metodo: 'pix', cartao: null, categoria: 'golpe', descricao: '=HYPERLINK("http://x")' } },
+        { numero: 2, t: { data: '2026-11-02', tipo: 'despesa', valor: 7, metodo: 'pix', cartao: null, categoria: '+soma', descricao: '@cmd' } },
+    ]);
+    const [, linha1, linha2] = csv.split('\r\n');
+    assert.strictEqual(linha1, `1;01/11/2026;despesa;-5,00;pix;;golpe;"'=HYPERLINK(""http://x"")";`);
+    assert.strictEqual(linha2, "2;02/11/2026;despesa;-7,00;pix;;'+soma;'@cmd;");
+});
+
+test('com a IA fora do ar, #traduzir, #ia e #dicas mostram só o erro e reagem ❌', async () => {
+    ia.perguntarIA = async () => '❌ nenhuma IA respondeu (groq: limite atingido). tente de novo em alguns minutos.';
+    for (const comando of ['#traduzir en bom dia', '#ia oi', '#dicas']) {
+        const bot = await enviar(comando);
+        assert.ok(bot.ultima().startsWith('❌ nenhuma IA respondeu'), `${comando}: ${bot.ultima()}`);
+        assert.strictEqual(bot.enviadas.filter((e) => e.conteudo.react).at(-1)?.conteudo.react.text, '❌', comando);
+    }
 });

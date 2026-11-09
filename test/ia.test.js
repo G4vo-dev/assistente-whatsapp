@@ -13,6 +13,7 @@ const groq = require('../src/servicos/ia/groq');
 const midia = require('../src/servicos/midia');
 const { tratarMensagem } = require('../src/roteador');
 const { lerData } = require('../src/util/formato');
+const lancamentoIA = require('../src/servicos/lancamento-ia');
 
 const originais = { groq: { ...groq }, midia: { ...midia }, fetch: global.fetch };
 let pedidos = [];
@@ -132,4 +133,26 @@ test('a IA pode mandar um objeto sozinho ou a data em AAAA-MM-DD', () => {
     assert.strictEqual(ia.extrairListaJson('não entendi'), null);
     assert.strictEqual(lerData('2026-11-05'), '2026-11-05');
     assert.strictEqual(lerData('2026-02-30'), null);
+});
+
+test('lançamento pela IA aceita a ação escrita com maiúscula', () => {
+    const conta = { transacoes: [], cartoes: [], fixos: [], metas: [], limites: [] };
+    const despesa = lancamentoIA.aplicarAcao(conta, { acao: 'Despesa', valor: 10, metodo: 'pix', categoria: 'padaria', descricao: 'pão' });
+    assert.ok(despesa.startsWith('🔴 nº 1 pão · R$ 10,00'), despesa);
+    const receita = lancamentoIA.aplicarAcao(conta, { acao: 'Receita', valor: 50, metodo: 'pix', categoria: 'venda', descricao: 'bolo' });
+    assert.ok(receita.startsWith('🟢 nº 2 bolo'), receita);
+    assert.deepStrictEqual(conta.transacoes.map((t) => t.tipo), ['despesa', 'receita']);
+    assert.ok(lancamentoIA.aplicarAcao(conta, { acao: 'META', valor: 500, descricao: 'bike' }).startsWith('🎯 meta: bike'));
+});
+
+test('áudio com transferência, venda, saque ou gíria de dinheiro vira lançamento', () => {
+    for (const frase of ['transferi 50 pro joão', 'vendi a bike por 300', 'deu 20 pila o lanche', 'depositei 100 na poupança', 'saquei 200 no caixa', 'gastei 30 no uber']) {
+        assert.ok(lancamentoIA.falaDeDinheiro(frase), frase);
+    }
+    assert.ok(!lancamentoIA.falaDeDinheiro('lembrar de ligar pra mãe amanhã'));
+});
+
+test('links em markdown viram texto que o WhatsApp mostra direito', () => {
+    assert.strictEqual(ia.limparResposta('baixe no [MCPEDL](https://mcpedl.com/addon)'), 'baixe no MCPEDL (https://mcpedl.com/addon)');
+    assert.strictEqual(ia.limparResposta('site: [https://x.com](https://x.com)'), 'site: https://x.com');
 });
