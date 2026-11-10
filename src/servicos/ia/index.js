@@ -16,7 +16,14 @@ function limparResposta(texto) {
         .replace(/<think>[\s\S]*?(<\/think>|$)/gi, '')
         .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')
         .replace(/\*\*(.+?)\*\*/g, '*$1*')
+        // [texto](link) não vira link no WhatsApp: fica "texto (link)"
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, rotulo, link) => (rotulo === link ? link : `${rotulo} (${link})`))
         .trim();
+}
+
+// As respostas de erro das funções abaixo começam com ❌ (assim o comando sabe que não deu certo).
+function ehFalha(resposta) {
+    return String(resposta || '').startsWith('❌');
 }
 
 function mensagemDeFalha(tarefa, erro) {
@@ -58,21 +65,27 @@ async function transcreverAudio(dados, nome = 'audio.ogg', tipo = 'audio/ogg') {
     }
 }
 
-// Pega o primeiro array JSON de dentro da resposta da IA.
-function extrairListaJson(texto) {
-    const limpo = String(texto || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json)?/gi, '');
-    const inicio = limpo.indexOf('[');
-    const fim = limpo.lastIndexOf(']');
-    if (inicio === -1 || fim <= inicio) return null;
+function lerJsonEntre(texto, abre, fecha) {
+    const inicio = texto.indexOf(abre);
+    const fim = texto.lastIndexOf(fecha);
+    if (inicio === -1 || fim <= inicio) return undefined;
     try {
-        const lista = JSON.parse(limpo.slice(inicio, fim + 1));
-        return Array.isArray(lista) ? lista : null;
+        return JSON.parse(texto.slice(inicio, fim + 1));
     } catch {
-        return null;
+        return undefined;
     }
 }
 
+// Pega a lista JSON de ações de dentro da resposta da IA (uma ação sozinha vira lista de um item).
+function extrairListaJson(texto) {
+    const limpo = String(texto || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:json)?/gi, '');
+    const lista = lerJsonEntre(limpo, '[', ']');
+    if (Array.isArray(lista)) return lista;
+    const objeto = lerJsonEntre(limpo, '{', '}');
+    return objeto?.acao ? [objeto] : null;
+}
+
 module.exports = {
-    perguntarIA, perguntarSobreImagem, transcreverAudio, extrairListaJson, limparResposta, iaLigada,
+    perguntarIA, perguntarSobreImagem, transcreverAudio, extrairListaJson, limparResposta, iaLigada, ehFalha,
     situacao: fila.situacao, SEM_CHAVE,
 };

@@ -15,7 +15,8 @@ const lembretes = require('./servicos/lembretes');
 const agenda = require('./agenda');
 
 const MAX_ATRASO_SEGUNDOS = 120; // mensagens que chegam atrasadas (bot estava offline) até 2 min ainda valem
-const PRECISA_PAREAR = 2; // código de saída que avisa o scripts/iniciar.sh para não ficar religando
+// códigos de saída que avisam o scripts/iniciar.sh para não ficar religando
+const SAIDA = { PRECISA_PAREAR: 2, OUTRA_COPIA: 3 };
 let tentativas = 0;
 
 function perguntar(texto) {
@@ -27,7 +28,7 @@ async function numeroParaParear() {
     // ligado sozinho (Termux:Boot): não tem como digitar nem ver o código
     if (!process.stdin.isTTY) {
         console.log('🔑 o bot precisa ser pareado: abra o Termux e rode npm start');
-        process.exit(PRECISA_PAREAR);
+        process.exit(SAIDA.PRECISA_PAREAR);
     }
     if (NUMERO_DONO) return NUMERO_DONO;
     const digitado = await perguntar('\n📱 digite seu número com DDI e DDD (ex: 5511999999999): ');
@@ -37,6 +38,17 @@ async function numeroParaParear() {
 function recente(msg) {
     const enviadoEm = Number(msg.messageTimestamp) || 0;
     return Date.now() / 1000 - enviadoEm <= MAX_ATRASO_SEGUNDOS;
+}
+
+// O que fazer quando a conexão cai, pelo código que o WhatsApp mandou.
+function aoCair(codigo) {
+    if (codigo === DisconnectReason.loggedOut) {
+        return { sair: SAIDA.PRECISA_PAREAR, aviso: '🚪 o WhatsApp desconectou este aparelho. apague a pasta auth_info_baileys e rode de novo para parear.' };
+    }
+    if (codigo === DisconnectReason.connectionReplaced) {
+        return { sair: SAIDA.OUTRA_COPIA, aviso: '⛔ outra cópia do bot conectou com esta mesma sessão (em outra pasta ou outro aparelho). deixe só uma ligada.' };
+    }
+    return { reconectar: true };
 }
 
 async function iniciarBot() {
@@ -81,9 +93,10 @@ async function iniciarBot() {
             lembretes.definirEnvio(null);
             agenda.parar();
             const codigo = lastDisconnect?.error?.output?.statusCode;
-            if (codigo === DisconnectReason.loggedOut) {
-                console.log('🚪 o WhatsApp desconectou este aparelho. apague a pasta auth_info_baileys e rode de novo para parear.');
-                process.exit(PRECISA_PAREAR);
+            const decisao = aoCair(codigo);
+            if (decisao.sair) {
+                console.log(decisao.aviso);
+                process.exit(decisao.sair);
             }
             tentativas += 1;
             const segundos = Math.min(30, 2 ** tentativas);
@@ -103,4 +116,4 @@ async function iniciarBot() {
     });
 }
 
-module.exports = { iniciarBot };
+module.exports = { iniciarBot, aoCair, SAIDA };

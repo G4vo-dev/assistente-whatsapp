@@ -26,6 +26,7 @@ fs.writeFileSync(path.join(legado, 'goals.json'), JSON.stringify({ [EU_LID]: [{ 
 
 const { tratarMensagem } = require('../src/roteador');
 const ia = require('../src/servicos/ia');
+const { montarGrafico } = require('../src/servicos/financas-texto');
 
 async function enviar(texto, key) {
     const bot = criarBot();
@@ -179,4 +180,17 @@ test('resetfin tudo zera a carteira; geral zera todas as conversas; backup vem a
 
     assert.ok((await enviar('#resetfin geral confirmar')).includes('conversa(s)'));
     assert.ok((await enviar('#extrato', grupo)).includes('nenhum lançamento'));
+});
+
+test('fixos x variáveis não conta duas vezes o fixo que já foi pago', () => {
+    const conta = {
+        cartoes: [], metas: [], limites: [],
+        fixos: [{ descricao: 'aluguel', valor: 1000 }],
+        transacoes: [
+            { tipo: 'despesa', valor: 1000, metodo: 'conta', categoria: 'fixos', data: '2026-09-05', descricao: 'aluguel' },
+            { tipo: 'despesa', valor: 500, metodo: 'pix', categoria: 'comida', data: '2026-09-10', descricao: 'mercado' },
+        ],
+    };
+    const r = montarGrafico(conta, '2026-09');
+    assert.ok(r.includes('fixos 67%') && r.includes('variáveis 33%'), r);
 });

@@ -1,12 +1,10 @@
 // Avisos automáticos, backup, restauração e exportação para planilha.
 const fin = require('../servicos/financas');
-const lembretes = require('../servicos/lembretes');
+const backup = require('../servicos/backup');
 const midia = require('../servicos/midia');
+const agenda = require('../agenda');
 const { acharMidia } = require('../util/mensagem');
-const { normalizar, lerMes, nomeDoMes } = require('../util/formato');
-
-// a agenda carrega os comandos de relatório; por isso é carregada só quando precisa
-const agenda = () => require('../agenda');
+const { normalizar, lerMes, nomeDoMes, hojeISO, agoraEmBrasilia } = require('../util/formato');
 
 // Planilha CSV que abre certinho no Excel e no Google Planilhas (ponto e vírgula, vírgula nos centavos).
 function montarCsv(transacoes) {
@@ -14,12 +12,18 @@ function montarCsv(transacoes) {
         const texto = String(valor ?? '');
         return /[;"\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
     };
+    // texto que começa com = + - @ vira fórmula na planilha (ex.: descrição lida de um comprovante); o ' impede isso
+    const textoLivre = (valor) => {
+        const texto = String(valor ?? '');
+        return /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+    };
     const linhas = [['nº', 'data', 'tipo', 'valor', 'método', 'cartão', 'categoria', 'descrição', 'parcela'].join(';')];
     for (const { t, numero } of transacoes) {
         const [ano, mes, dia] = t.data.split('-');
         linhas.push([
             numero, `${dia}/${mes}/${ano}`, t.tipo, (t.tipo === 'despesa' ? -t.valor : t.valor).toFixed(2).replace('.', ','),
-            t.metodo, t.cartao || '', t.categoria, t.descricao, t.parcela ? `${t.parcela.atual}/${t.parcela.total}` : '',
+            textoLivre(t.metodo), textoLivre(t.cartao), textoLivre(t.categoria), textoLivre(t.descricao),
+            t.parcela ? `${t.parcela.atual}/${t.parcela.total}` : '',
         ].map(campo).join(';'));
     }
     return `\ufeff${linhas.join('\r\n')}\r\n`;
@@ -29,7 +33,7 @@ function acharTarefa(texto) {
     const alvo = normalizar(texto);
     const apelidos = { fixo: 'fixos', contas: 'fixos', semana: 'semanal', mes: 'mensal', fechamento: 'mensal' };
     const id = apelidos[alvo] || alvo;
-    return agenda().TAREFAS.find((t) => t.id === id) || null;
+    return agenda.TAREFAS.find((t) => t.id === id) || null;
 }
 
 module.exports = {
@@ -38,62 +42,66 @@ module.exports = {
         {
             nome: 'avisos',
             apelidos: ['automaticos'],
+            soDono: true,
             uso: 'avisos [ligar | desligar | testar] [nome]',
             descricao: 'mensagens automáticas na conversa com você',
-            ajuda: 'nomes: fixos, semanal, mensal, backup. "testar" manda o aviso agora.',
+            ajuda: 'nomes: fixos, semanal, mensal, backup. "testar" manda o aviso agora. só o dono usa.',
             exemplos: ['avisos', 'avisos desligar backup', 'avisos testar semanal'],
             async executar(ctx) {
                 const acao = normalizar(ctx.args[0]);
                 const p = ctx.prefixo;
                 if (['ligar', 'desligar', 'testar'].includes(acao)) {
                     const tarefa = acharTarefa(ctx.args[1]);
-                    if (!tarefa) return ctx.responder(`❌ use um destes nomes: ${agenda().TAREFAS.map((t) => t.id).join(', ')}`);
+                    if (!tarefa) return ctx.responder(`❌ use um destes nomes: ${agenda.TAREFAS.map((t) => t.id).join(', ')}`);
                     if (acao !== 'testar') {
-                        agenda().ligarDesligar(tarefa.id, acao === 'ligar');
+                        agenda.ligarDesligar(tarefa.id, acao === 'ligar');
                         return ctx.responder(`${acao === 'ligar' ? '✅' : '⛔'} ${tarefa.nome}: ${acao === 'ligar' ? 'ligado' : 'desligado'}.`);
                     }
-                    const conteudo = agenda().conteudoDaTarefa(tarefa.id, ctx.bot, agenda().agoraEmBrasilia(), { forcar: true });
-                    if (!conteudo) return ctx.responder(`📭 ${tarefa.nome}: nada para avisar agora.`);
-                    return ctx.responder(conteudo);
+                    const pronta = agenda.prepararTarefa(tarefa.id, ctx.bot, agoraEmBrasilia(), { forcar: true });
+                    if (!pronta) return ctx.responder(`📭 ${tarefa.nome}: nada para avisar agora.`);
+                    await ctx.responder(pronta.mensagem);
+                    return pronta.depoisDeEnviar?.();
                 }
-                const linhas = agenda().listarTarefas().map((t) => `${t.ligada ? '✅' : '⛔'} *${t.id}* · ${t.nome} (${t.quando})`);
+                const linhas = agenda.listarTarefas().map((t) => `${t.ligada ? '✅' : '⛔'} *${t.id}* · ${t.nome} (${t.quando})`);
                 await ctx.responder(`⏰ *avisos automáticos*\nvão para a conversa com você mesmo.\n\n${linhas.join('\n')}\n\npara mudar: ${p}avisos desligar [nome]\npara ver agora: ${p}avisos testar [nome]`);
             },
         },
         {
             nome: 'backup',
+            soDono: true,
             descricao: 'manda agora o arquivo de backup',
-            ajuda: 'o bot também manda sozinho todo dia às 22h quando algo mudou. guarde o arquivo: com ele você recupera tudo se trocar de celular.',
+            ajuda: 'o bot também manda sozinho todo dia às 22h quando algo mudou. guarde o arquivo: com ele você recupera tudo se trocar de celular. '
+                + 'só o dono usa, porque o arquivo tem as finanças de todas as conversas.',
             async executar(ctx) {
-                const { texto } = agenda().montarBackup();
-                await ctx.responder(agenda().mensagemDeBackup(texto, agenda().agoraEmBrasilia().iso));
+                const { texto } = backup.montarBackup();
+                await ctx.responder(backup.mensagemDeBackup(texto, hojeISO()));
             },
         },
         {
             nome: 'restaurar',
+            soDono: true,
             uso: 'restaurar confirmar',
             descricao: 'volta as finanças de um arquivo de backup',
             ajuda: 'responda o arquivo de backup (backup-assistente-....json) com #restaurar confirmar. '
-                + 'os dados atuais são guardados em dados/backups antes.',
+                + 'os dados atuais são guardados em dados/backups antes. só o dono usa.',
             async executar(ctx) {
                 const alvo = acharMidia(ctx.msg, ctx.conteudo, ['documentMessage', 'documentWithCaptionMessage']);
                 const nome = alvo?.info?.fileName || '';
-                if (!alvo || !/^backup-assistente.*\.json$/i.test(nome)) {
+                if (!alvo || !backup.ehArquivoDeBackup(nome)) {
                     return ctx.responder(`❌ responda o arquivo de backup (backup-assistente-....json) com ${ctx.prefixo}restaurar confirmar`);
                 }
                 if (normalizar(ctx.args[0]) !== 'confirmar') {
                     return ctx.responder(`⚠️ isso troca TODAS as finanças e lembretes atuais pelos do arquivo ${nome}.\npara confirmar, responda o arquivo com *${ctx.prefixo}restaurar confirmar*`);
                 }
-                let backup;
+                let conteudo;
                 try {
-                    backup = JSON.parse((await midia.baixarDaMensagem(ctx.bot, alvo.mensagem)).toString('utf8'));
+                    conteudo = JSON.parse((await midia.baixarDaMensagem(ctx.bot, alvo.mensagem)).toString('utf8'));
                 } catch {
                     return ctx.responder('❌ não consegui ler esse arquivo.');
                 }
-                if (backup?.tipo !== 'backup-assistente') return ctx.responder('❌ esse arquivo não é um backup do assistente.');
-                const total = fin.restaurarBackup(backup.financas);
-                lembretes.importar(backup.lembretes || []);
-                await ctx.responder(`✅ backup de ${String(backup.criadoEm).slice(0, 10)} restaurado: ${total} lançamento(s) e ${(backup.lembretes || []).length} lembrete(s).`);
+                if (!backup.ehBackup(conteudo)) return ctx.responder('❌ esse arquivo não é um backup do assistente.');
+                const r = backup.restaurar(conteudo);
+                await ctx.responder(`✅ backup de ${r.criadoEm} restaurado: ${r.lancamentos} lançamento(s) e ${r.lembretes} lembrete(s).`);
             },
         },
         {

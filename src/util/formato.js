@@ -2,6 +2,7 @@
 
 const FUSO = 'America/Sao_Paulo';
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const DIAS_EM_INGLES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function reais(valor, casas = 2) {
     return Number(valor)
@@ -38,6 +39,25 @@ function hojeISO() {
     return isoDoDia(new Date());
 }
 
+// Data, hora e dia da semana (0 = domingo) de um momento no horário de Brasília.
+function agoraEmBrasilia(data = new Date()) {
+    const partes = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+        timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
+    }).formatToParts(data).map((p) => [p.type, p.value]));
+    return {
+        data,
+        iso: `${partes.year}-${partes.month}-${partes.day}`,
+        dia: Number(partes.day),
+        hora: Number(partes.hour),
+        minuto: Number(partes.minute),
+        diaSemana: DIAS_EM_INGLES.indexOf(partes.weekday),
+    };
+}
+
+function diasNoMes(ano, mes) {
+    return new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+}
+
 function mesAtual() {
     return hojeISO().slice(0, 7);
 }
@@ -51,13 +71,18 @@ function montarISO(ano, mes, dia) {
     return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
-// Entende "hoje", "ontem", "15/10", "15/10/26" e "15/10/2026". Devolve AAAA-MM-DD ou null.
+// Entende "hoje", "ontem", "15/10", "15/10/26", "15/10/2026" e "2026-10-15". Devolve AAAA-MM-DD ou null.
 function lerData(texto, anoPadrao) {
     const t = normalizar(texto);
     if (t === 'hoje') return hojeISO();
     if (t === 'ontem' || t === 'anteontem') {
         const dias = t === 'ontem' ? 1 : 2;
         return isoDoDia(new Date(Date.now() - dias * 86400000));
+    }
+    const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+        const [ano, mes, dia] = iso.slice(1).map(Number);
+        return dataValida(ano, mes, dia) ? montarISO(ano, mes, dia) : null;
     }
     const m = t.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2}|\d{4}))?$/);
     if (!m) return null;
@@ -104,6 +129,10 @@ function dataHora(ms) {
     return new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: FUSO });
 }
 
+function horaCurta(ms) {
+    return new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: FUSO });
+}
+
 // Barra de progresso em texto: barra(0.42) -> "████░░░░░░"
 function barra(fracao, largura = 10) {
     const cheios = Math.max(0, Math.min(largura, Math.round(fracao * largura)));
@@ -116,6 +145,6 @@ function porcento(fracao) {
 
 module.exports = {
     reais, arredondar, lerValor, normalizar,
-    hojeISO, mesAtual, isoDoDia, lerData, lerMes, dataCurta, nomeDoMes, dataHora,
+    hojeISO, mesAtual, isoDoDia, agoraEmBrasilia, diasNoMes, lerData, lerMes, dataCurta, nomeDoMes, dataHora, horaCurta,
     barra, porcento,
 };

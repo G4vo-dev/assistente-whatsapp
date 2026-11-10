@@ -1,43 +1,22 @@
 // Mensagens automáticas: contas fixas do dia, resumo da semana, resumo do mês e backup diário.
 // Vão sempre para a conversa com você mesmo. O que já foi enviado fica anotado em dados/agenda.json.
-const crypto = require('crypto');
 const fin = require('./servicos/financas');
-const lembretes = require('./servicos/lembretes');
+const backup = require('./servicos/backup');
 const { ler, salvar } = require('./servicos/armazenamento');
+const { montarGrafico } = require('./servicos/financas-texto');
 const { enviar } = require('./envio');
 const { carteiraPropria, meuJid } = require('./carteira');
-const { montarGrafico } = require('./comandos/relatorios');
-const { reais, normalizar, isoDoDia, dataCurta, nomeDoMes, porcento } = require('./util/formato');
+const { reais, normalizar, isoDoDia, dataCurta, nomeDoMes, porcento, agoraEmBrasilia, diasNoMes } = require('./util/formato');
 const { PREFIXO } = require('./config');
 
 const ARQUIVO = 'agenda.json';
-const FUSO = 'America/Sao_Paulo';
-const DIAS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-// Agora no horário de Brasília.
-function agoraEmBrasilia(data = new Date()) {
-    const partes = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-        timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
-    }).formatToParts(data).map((p) => [p.type, p.value]));
-    return {
-        data,
-        iso: `${partes.year}-${partes.month}-${partes.day}`,
-        dia: Number(partes.day),
-        hora: Number(partes.hour),
-        diaSemana: DIAS.indexOf(partes.weekday),
-    };
-}
-
-function diasNoMes(iso) {
-    const [ano, mes] = iso.split('-').map(Number);
-    return new Date(Date.UTC(ano, mes, 0)).getUTCDate();
-}
 
 // ---------- tarefas ----------
 
 // Contas fixas que vencem hoje (fixo com dia 31 vence no último dia de meses curtos) e ainda não foram pagas.
 function avisoDeFixos(conta, agora) {
-    const ultimoDia = diasNoMes(agora.iso);
+    const [ano, numeroDoMes] = agora.iso.split('-').map(Number);
+    const ultimoDia = diasNoMes(ano, numeroDoMes);
     const mes = agora.iso.slice(0, 7);
     const pagos = new Set(conta.transacoes
         .filter((t) => t.categoria === 'fixos' && t.data.startsWith(mes))
@@ -74,29 +53,6 @@ function resumoDoMesPassado(conta, agora) {
     return `🗓️ *fechamento de ${nomeDoMes(anterior)}*\n\n${montarGrafico(conta, anterior)}`;
 }
 
-// Backup completo (todas as conversas + lembretes) num arquivo que dá para restaurar com #restaurar.
-function montarBackup() {
-    const conteudo = {
-        tipo: 'backup-assistente',
-        versao: 1,
-        criadoEm: new Date().toISOString(),
-        financas: fin.dadosParaBackup(),
-        lembretes: lembretes.exportar(),
-    };
-    const texto = JSON.stringify(conteudo, null, 2);
-    const assinatura = crypto.createHash('sha1').update(JSON.stringify([conteudo.financas, conteudo.lembretes])).digest('hex');
-    return { texto, assinatura };
-}
-
-function mensagemDeBackup(texto, iso) {
-    return {
-        document: Buffer.from(texto),
-        mimetype: 'application/json',
-        fileName: `backup-assistente-${iso}.json`,
-        caption: `💾 backup das finanças e lembretes.\npara restaurar: responda este arquivo com *${PREFIXO}restaurar confirmar*`,
-    };
-}
-
 const TAREFAS = [
     { id: 'fixos', nome: 'contas fixas que vencem no dia', quando: 'todo dia às 9h', hora: 9 },
     { id: 'semanal', nome: 'resumo da semana', quando: 'domingo às 20h', hora: 20, diaSemana: 0 },
@@ -125,21 +81,18 @@ function listarTarefas() {
 
 // ---------- execução ----------
 
-// Gera a mensagem de uma tarefa (ou null se não há nada a dizer).
-function conteudoDaTarefa(id, bot, agora, { forcar = false } = {}) {
-    const conta = fin.lerConta(carteiraPropria(bot));
-    if (id === 'fixos') return avisoDeFixos(conta, agora);
-    if (id === 'semanal') return resumoDaSemana(conta, agora);
-    if (id === 'mensal') return resumoDoMesPassado(conta, agora);
+// Prepara a mensagem de uma tarefa: { mensagem, depoisDeEnviar } ou null se não há nada a dizer.
+function prepararTarefa(id, bot, agora, { forcar = false } = {}) {
     if (id === 'backup') {
-        const { texto, assinatura } = montarBackup();
+        const { texto, assinatura } = backup.montarBackup();
         if (!forcar && assinatura === estado().assinaturaBackup) return null;
-        const e = estado();
-        e.assinaturaBackup = assinatura;
-        salvar(ARQUIVO, e);
-        return mensagemDeBackup(texto, agora.iso);
+        // só anota o backup como enviado depois que o envio dá certo; se falhar, ele sai de novo no dia seguinte
+        const depoisDeEnviar = () => salvar(ARQUIVO, { ...estado(), assinaturaBackup: assinatura });
+        return { mensagem: backup.mensagemDeBackup(texto, agora.iso), depoisDeEnviar };
     }
-    return null;
+    const montar = { fixos: avisoDeFixos, semanal: resumoDaSemana, mensal: resumoDoMesPassado }[id];
+    const texto = montar ? montar(fin.lerConta(carteiraPropria(bot)), agora) : null;
+    return texto ? { mensagem: { text: texto } } : null;
 }
 
 function deveRodar(tarefa, agora, e) {
@@ -167,9 +120,10 @@ async function verificar(bot, data = new Date()) {
             e.ultimas[tarefa.id] = agora.iso;
             salvar(ARQUIVO, e);
             try {
-                const conteudo = conteudoDaTarefa(tarefa.id, bot, agora);
-                if (conteudo) {
-                    await enviar(bot, destino, typeof conteudo === 'string' ? { text: conteudo } : conteudo);
+                const pronta = prepararTarefa(tarefa.id, bot, agora);
+                if (pronta) {
+                    await enviar(bot, destino, pronta.mensagem);
+                    pronta.depoisDeEnviar?.();
                     feitas.push(tarefa.id);
                 }
             } catch (erro) {
@@ -196,7 +150,4 @@ function parar() {
     intervalo = null;
 }
 
-module.exports = {
-    iniciar, parar, verificar, listarTarefas, ligarDesligar, conteudoDaTarefa,
-    agoraEmBrasilia, montarBackup, mensagemDeBackup, TAREFAS,
-};
+module.exports = { iniciar, parar, verificar, listarTarefas, ligarDesligar, prepararTarefa, TAREFAS };

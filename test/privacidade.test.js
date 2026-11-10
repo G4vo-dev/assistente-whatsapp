@@ -1,5 +1,5 @@
 // Testes de privacidade e avisos: modo privado, #privacidade, aviso para outros usuários, direitos autorais e avisos financeiros.
-process.env.PERMITIDOS_TESTE = '5521977776666';
+process.env.PERMITIDOS_TESTE = '5521977776666,5531955554444';
 process.env.GROQ_TESTE = 'chave-groq';
 process.env.GEMINI_TESTE = 'chave-gemini';
 const { criarBot, mensagem, limpar } = require('./ajudante');
@@ -63,4 +63,40 @@ test('#dicas e #iaeco avisam que não é recomendação de investimento', async 
 test('#comprovante em PDF explica que o modo privado não lê PDF', async () => {
     const r = (await enviar('', {}, { documentMessage: { caption: '#comprovante', mimetype: 'application/pdf', fileName: 'a.pdf' } })).ultima();
     assert.ok(r.includes('modo privado'), r);
+});
+
+
+test('#backup, #restaurar e #avisos são só do dono', async () => {
+    await enviar('#despesa 999 pix saude consulta do dono');
+    for (const comando of ['#backup', '#avisos', '#avisos testar backup', '#avisos desligar backup', '#restaurar confirmar']) {
+        const bot = await enviar(comando, AMIGO);
+        assert.ok(!bot.enviadas.some((e) => e.conteudo.document), `${comando} não pode mandar arquivo para outra pessoa`);
+        assert.ok(bot.ultima().includes('só o dono'), `${comando}: ${bot.ultima()}`);
+    }
+    const bot = await enviar('#avisos');
+    assert.ok(bot.ultima().includes('✅ *backup*'), 'o pedido do amigo não desligou o backup do dono');
+});
+
+test('#resetfin de outra pessoa apaga só a carteira dela e não manda o backup de todo mundo', async () => {
+    await enviar('#despesa 999 pix saude consulta do dono');
+    await enviar('#despesa 15 pix lanche coxinha', AMIGO);
+    const bot = await enviar('#resetfin confirmar', AMIGO);
+    assert.ok(!bot.enviadas.some((e) => e.conteudo.document), 'não manda o arquivo de backup');
+    assert.ok(bot.ultima().includes('1 lançamento(s) apagado(s)') && bot.ultima().includes('cópia de segurança'), bot.ultima());
+    assert.ok((await enviar('#extrato')).ultima().includes('consulta do dono'), 'a carteira do dono continua');
+});
+
+test('comando desconhecido fora da conversa com você mesmo fica em silêncio (hashtag em grupo)', async () => {
+    const grupo = { fromMe: true, remoteJid: '120363000000000000@g.us' };
+    assert.strictEqual((await enviar('#tbt da viagem', grupo)).enviadas.length, 0);
+    assert.strictEqual((await enviar('#sextou', AMIGO)).textos().filter((t) => t.includes('não conheço')).length, 0);
+    assert.ok((await enviar('#tbt')).ultima().includes('não conheço'), 'na conversa com você mesmo continua avisando');
+    assert.match((await enviar('#ping', grupo)).ultima(), /^pong/, 'comandos que existem continuam funcionando no grupo');
+});
+
+test('o aviso de privacidade só aparece quando a pessoa usa um comando que existe', async () => {
+    const novo = { fromMe: false, remoteJid: '5531955554444@s.whatsapp.net' };
+    assert.strictEqual((await enviar('#sextou', novo)).enviadas.length, 0, 'hashtag não ganha aviso');
+    const textos = (await enviar('#ping', novo)).textos();
+    assert.ok(textos.length === 2 && textos[0].includes('bot pessoal') && textos[1].startsWith('pong'), textos.join(' | '));
 });

@@ -20,6 +20,11 @@ function info(arquivo) {
     return JSON.parse(json).streams[0];
 }
 
+// Largura e altura da tela de uma figurinha animada (cabeçalho VP8X do webp).
+function telaDaFigurinha(dados) {
+    return { largura: dados.readUIntLE(24, 3) + 1, altura: dados.readUIntLE(27, 3) + 1 };
+}
+
 function gerar(pasta, nome, argumentos) {
     const arquivo = path.join(pasta, nome);
     execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...argumentos, arquivo]);
@@ -67,6 +72,20 @@ test('vídeo e gif viram figurinha animada abaixo de 1 MB', { skip: !temFfmpeg &
             fs.writeFileSync(webp, dados);
             assert.ok(dados.includes(Buffer.from('ANIM')), 'deveria ser animada');
         }
+    } finally {
+        midia.apagarPasta(pasta);
+    }
+});
+
+test('vídeo muito agitado é reduzido até caber no limite de 1 MB', { skip: !temFfmpeg && 'sem ffmpeg', timeout: 300000 }, async () => {
+    const pasta = midia.criarPasta();
+    try {
+        // ruído aleatório é o pior caso para comprimir
+        const video = gerar(pasta, 'ruido.mp4', ['-f', 'lavfi', '-i', 'nullsrc=s=512x512:d=2:r=30,geq=random(1)*255:128:128', '-pix_fmt', 'yuv420p']);
+        const dados = await midia.paraFigurinha(video, pasta);
+        assert.ok(dados.length <= 1024 * 1024, `ficou com ${(dados.length / 1048576).toFixed(2)} MB`);
+        assert.ok(dados.includes(Buffer.from('ANIM')), 'deveria continuar animada');
+        assert.deepStrictEqual(telaDaFigurinha(dados), { largura: 512, altura: 512 });
     } finally {
         midia.apagarPasta(pasta);
     }

@@ -11,6 +11,10 @@ while true; do
         echo "🔑 precisa parear de novo: rode npm start no Termux."
         exit 2
     fi
+    if [ "$codigo" -eq 3 ]; then
+        echo "⛔ o bot já está ligado em outro lugar: não vou religar este."
+        exit 3
+    fi
     if [ "$codigo" -eq 130 ]; then
         exit 0 # Ctrl+C
     fi

@@ -1,12 +1,7 @@
 // Entende o que foi digitado em #receita / #despesa.
 // Formato: [valor] [método] [cartão] [parcelas] [categoria] [data] [descrição] — só o valor é obrigatório.
 const { lerValor, lerData, normalizar } = require('../util/formato');
-const { metodoConhecido } = require('./financas-modelo');
-
-function acharCartao(cartoes, nome) {
-    const alvo = normalizar(nome);
-    return alvo ? cartoes.find((c) => normalizar(c.nome) === alvo) || null : null;
-}
+const { metodoConhecido, acharCartao } = require('./financas-modelo');
 
 // Devolve { valor, metodo, cartao, parcelas, categoria, data, descricao } ou { erro, ... }.
 function interpretarLancamento(args, cartoes, tipo) {

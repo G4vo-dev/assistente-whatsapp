@@ -51,6 +51,7 @@ Só quando você usa um comando que precisa deles:
 ### Dados de outras pessoas
 - Comprovantes, áudios e mensagens podem ter **dados de terceiros** (nome, CPF, banco, voz). Só mande para o bot o que você tem direito de usar, e evite mandar dados de outras pessoas para a IA sem necessidade.
 - Se você liberar o bot para outras pessoas (`PERMITIDOS`), na primeira vez que cada uma usar ela recebe um aviso de privacidade, e pode ver os detalhes com `#privacidade`. Ela pode apagar as próprias finanças a qualquer momento com `#resetfin tudo confirmar`. Se ela pedir para apagar tudo, atenda.
+- Quem está no `PERMITIDOS` só mexe na carteira da própria conversa. `#backup`, `#restaurar` e `#avisos` são só do dono, porque o arquivo de backup tem as finanças de todas as conversas.
 
 ## 4. Direitos autorais e direito de imagem
 

@@ -1,12 +1,8 @@
 const fin = require('../servicos/financas');
 const { interpretarLancamento } = require('../servicos/lancamento');
+const { linhaDoExtrato, depoisDeLancar } = require('../servicos/financas-texto');
+const { ehAdicionar, ehRemover } = require('./subcomandos');
 const { reais, lerValor, lerMes, dataCurta, nomeDoMes, mesAtual, normalizar } = require('../util/formato');
-
-function linhaDoExtrato(t, numero) {
-    const icone = fin.ehFuturo(t) ? '🗓️' : t.tipo === 'receita' ? '🟢' : '🔴';
-    const forma = fin.ehCredito(t) ? `💳 ${t.cartao || '?'}` : t.metodo;
-    return `${numero}. ${icone} ${dataCurta(t.data)} ${fin.nomeComParcela(t)} · *${reais(t.valor)}* · ${forma} · 🏷️ ${t.categoria}`;
-}
 
 function lancamento(tipo) {
     return async (ctx) => {
@@ -45,26 +41,7 @@ function lancamento(tipo) {
     };
 }
 
-// Texto que vai depois de qualquer lançamento: fatura do cartão ou saldo, e avisos de limite.
-function depoisDeLancar(conta, novas, prefixo = '#') {
-    const linhas = [];
-    const cartoes = [...new Set(novas.filter(fin.ehCredito).map((t) => t.cartao))];
-    for (const cartao of cartoes) linhas.push(fin.avisoDoCartao(conta, cartao));
-    if (cartoes.length) linhas.push(`(no crédito o saldo em conta só muda quando você usar ${prefixo}pagarfatura)`);
-    if (novas.some((t) => !fin.ehCredito(t))) {
-        linhas.push(`💰 saldo em conta: *${reais(fin.saldoEmConta(conta))}*`);
-        const agendado = fin.agendadoEmConta(conta);
-        if (agendado > 0) linhas.push(`🗓️ parcelas agendadas: ${reais(agendado)}`);
-    }
-    linhas.push(...fin.avisosDeLimite(conta, novas));
-    return linhas.join('\n');
-}
-
-const SUB_ADICIONAR = ['adicionar', 'add', 'novo', 'nova', 'criar'];
-const SUB_REMOVER = ['remover', 'apagar', 'excluir', 'del', 'rm'];
-
 module.exports = {
-    depoisDeLancar,
     titulo: '💰 *financeiro*',
     comandos: [
         {
@@ -176,16 +153,16 @@ module.exports = {
             descricao: 'cadastra cartões de crédito',
             exemplos: ['cartao adicionar nubank 2000', 'cartao listar', 'cartao remover nubank'],
             async executar(ctx) {
-                const acao = normalizar(ctx.args[0]);
+                const acao = ctx.args[0];
                 const nome = ctx.args[1];
                 const p = ctx.prefixo;
-                if (SUB_ADICIONAR.includes(acao)) {
+                if (ehAdicionar(acao)) {
                     const limite = lerValor(ctx.args[2]);
                     if (!nome || !(limite >= 0)) return ctx.responder(`❌ uso: ${p}cartao adicionar [nome] [limite]\nex: ${p}cartao adicionar nubank 2000`);
                     const { cartao, novo } = fin.alterarConta(ctx.conta, (c) => fin.salvarCartao(c, nome, limite));
                     return ctx.responder(`💳 cartão *${cartao.nome}* ${novo ? 'adicionado' : 'atualizado'} com limite de ${reais(cartao.limite)}.`);
                 }
-                if (SUB_REMOVER.includes(acao)) {
+                if (ehRemover(acao)) {
                     const removido = nome && fin.alterarConta(ctx.conta, (c) => fin.removerCartao(c, nome));
                     if (!removido) return ctx.responder(`❌ cartão não encontrado. veja em ${p}cartao listar`);
                     return ctx.responder(`🗑️ cartão *${removido.nome}* removido. (os lançamentos dele continuam no extrato)`);

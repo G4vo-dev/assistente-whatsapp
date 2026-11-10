@@ -3,6 +3,7 @@ process.env.PERMITIDOS_TESTE = '5521977776666';
 const { criarBot, mensagem, limpar, EU_PN, pasta } = require('./ajudante');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const test = require('node:test');
 const assert = require('node:assert');
 
@@ -98,3 +99,12 @@ test('figurinha: legenda #s e modo figurinha para as próximas fotos', async () 
     }
 });
 
+test('SEGUNDOS_MODO_FIGURINHA=0 desliga o modo figurinha', () => {
+    const ler = (valor) => spawnSync(process.execPath, ['-e', "console.log(require('./src/config').SEGUNDOS_MODO_FIGURINHA)"], {
+        cwd: path.join(__dirname, '..'), env: { ...process.env, SEGUNDOS_MODO_FIGURINHA: valor }, encoding: 'utf8',
+    }).stdout.trim();
+    assert.strictEqual(ler('0'), '0');
+    assert.strictEqual(ler('30'), '30');
+    assert.strictEqual(ler(''), '10');
+    assert.strictEqual(ler('abc'), '10');
+});

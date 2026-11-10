@@ -1,5 +1,6 @@
 const lembretes = require('../servicos/lembretes');
 const { reais, dataHora } = require('../util/formato');
+const { buscarJson } = require('../util/web');
 
 const URL_COTACOES = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL';
 const MAX_MINUTOS = 7 * 24 * 60;
@@ -34,9 +35,8 @@ module.exports = {
             async executar(ctx) {
                 let dados;
                 try {
-                    const resposta = await fetch(URL_COTACOES, { signal: AbortSignal.timeout(10000) });
-                    if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
-                    dados = await resposta.json();
+                    dados = await buscarJson(URL_COTACOES, { tempoMs: 10000 });
+                    if (!dados) throw new Error('cotações não encontradas');
                 } catch (erro) {
                     console.error('⚠️ cotação:', erro.message);
                     return ctx.responder('❌ não consegui buscar as cotações agora. tente de novo em instantes.');

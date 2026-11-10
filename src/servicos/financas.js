@@ -2,8 +2,10 @@
 // Cada conversa tem a sua "carteira". A conversa com você mesmo usa a carteira "eu".
 const { ler, salvar, existe, backup } = require('./armazenamento');
 const { migrar, haDadosAntigos } = require('./migracao');
-const { contaVazia, completarConta, novoId, normalizarTransacao, mesclarContas } = require('./financas-modelo');
-const { arredondar, normalizar, hojeISO, mesAtual, reais, porcento } = require('../util/formato');
+const modelo = require('./financas-modelo');
+const { contaVazia, completarConta, normalizarTransacao, mesclarContas } = modelo;
+const { arredondar, normalizar, hojeISO, mesAtual, diasNoMes, reais, porcento } = require('../util/formato');
+const { novoId } = require('../util/id');
 const { numeroDoJid } = require('../util/mensagem');
 
 const ARQUIVO = 'financas.json';
@@ -63,8 +65,7 @@ function adicionarTransacao(conta, dados) {
 function somarMeses(iso, meses) {
     const [ano, mes, dia] = iso.split('-').map(Number);
     const alvo = new Date(Date.UTC(ano, mes - 1 + meses, 1));
-    const ultimoDia = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
-    alvo.setUTCDate(Math.min(dia, ultimoDia));
+    alvo.setUTCDate(Math.min(dia, diasNoMes(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1)));
     return alvo.toISOString().slice(0, 10);
 }
 
@@ -124,8 +125,7 @@ function agendadoEmConta(conta) {
 // ---------- cartões e faturas ----------
 
 function acharCartao(conta, nome) {
-    const alvo = normalizar(nome);
-    return alvo ? conta.cartoes.find((c) => normalizar(c.nome) === alvo) || null : null;
+    return modelo.acharCartao(conta.cartoes, nome);
 }
 
 function salvarCartao(conta, nome, limite) {
