@@ -94,9 +94,10 @@ flowchart LR
 - **Dados sem banco de dados:** arquivos JSON com escrita atômica (arquivo temporário + `rename`), cópia de arquivo corrompido em vez de sobrescrever, backup antes de operações perigosas e migração automática de formatos antigos.
 - **Agendador que não perde aviso:** se o bot estava desligado no horário, a tarefa roda quando ele volta, uma vez por dia, com estado salvo em disco.
 - **Nunca responde a si mesmo:** o ID de cada mensagem enviada é gerado antes do envio, porque o WhatsApp devolve a própria mensagem antes da resposta da API.
-- **Figurinhas leves:** a figurinha animada é refeita com qualidade e fps menores até caber no limite do WhatsApp.
-- **Privacidade:** só o dono usa por padrão; quem for liberado recebe um aviso de privacidade; um modo privado mantém finanças, comprovantes e áudios longe das IAs que usam os dados no plano grátis.
-- **Testes sem WhatsApp:** 43 testes com um WhatsApp simulado cobrem finanças, fila de IAs, agenda, backup, privacidade e conversão de mídia com ffmpeg de verdade. O GitHub Actions roda o lint e os testes a cada mudança, no Node 20, 22 e 24.
+- **Figurinhas leves:** a figurinha animada é refeita com qualidade, fps, tamanho e duração menores até caber no limite de 1 MB do WhatsApp.
+- **Privacidade:** só o dono usa por padrão; quem for liberado recebe um aviso de privacidade e mexe só na carteira da própria conversa (`#backup`, `#restaurar` e `#avisos` são só do dono); um modo privado mantém finanças, comprovantes e áudios longe das IAs que usam os dados no plano grátis.
+- **Uma cópia só:** uma porta local, liberada sozinha quando o bot cai, impede duas cópias ligadas na mesma pasta; se o WhatsApp avisa que outra cópia assumiu a sessão, o bot para em vez de brigar.
+- **Testes sem WhatsApp:** 61 testes com um WhatsApp simulado cobrem finanças, fila de IAs, agenda, backup, privacidade e conversão de mídia com ffmpeg de verdade. O GitHub Actions roda o lint e os testes a cada mudança, no Node 20, 22 e 24.
 
 ## Rodando no WhatsApp
 
@@ -106,7 +107,9 @@ flowchart LR
 4. `npm start`, digite seu número e use o código de pareamento em WhatsApp > Aparelhos conectados > Conectar com número de telefone.
 5. Mande `#menu` em qualquer conversa.
 
-No Termux, `npm run iniciar` religa o bot se ele cair e `npm run instalar-boot` liga o bot junto com o celular (app Termux:Boot).
+No Termux, `npm run iniciar` religa o bot se ele cair e `npm run instalar-boot` liga o bot junto com o celular (app Termux:Boot). Se o bot já estiver ligado, um novo `npm start` avisa e fecha.
+
+Fora da conversa com você mesmo, o bot não responde a comandos que não existem: uma hashtag como `#tbt` num grupo não ganha resposta.
 
 | Comando | Para quê |
 |---|---|
@@ -135,7 +138,7 @@ test/                 testes com WhatsApp simulado
 
 ## English summary
 
-Personal WhatsApp assistant in Node.js (runs even on an Android phone via Termux): expense tracking with credit cards, installments, budgets and goals; AI features with a provider queue and automatic fallback (Groq, Gemini, Mistral, OpenRouter) for chat, voice notes, receipt photos and PDFs; stickers with ffmpeg; reminders and scheduled summaries. Try it without WhatsApp: `npm install && npm run demo -- --roteiro`. 43 automated tests run against a simulated WhatsApp.
+Personal WhatsApp assistant in Node.js (runs even on an Android phone via Termux): expense tracking with credit cards, installments, budgets and goals; AI features with a provider queue and automatic fallback (Groq, Gemini, Mistral, OpenRouter) for chat, voice notes, receipt photos and PDFs; stickers with ffmpeg; reminders and scheduled summaries. Try it without WhatsApp: `npm install && npm run demo -- --roteiro`. 61 automated tests run against a simulated WhatsApp.
 
 ## Licença
 
