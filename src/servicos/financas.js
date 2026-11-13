@@ -97,6 +97,34 @@ function removerTransacao(conta, numero) {
     return { removida: alvo, quantidade: antes - conta.transacoes.length };
 }
 
+// Procura, na lista, um lançamento igual (mesmo tipo, valor e dia) e tira ele da lista.
+// Serve para não lançar de novo o que já estava anotado (ex.: dois prints do extrato que mostram a mesma compra).
+// Tirar da lista faz duas compras iguais no mesmo dia contarem como duas.
+function tirarRepetida(lista, dados) {
+    const valor = arredondar(dados.valor);
+    const i = lista.findIndex((t) => t.tipo === dados.tipo && arredondar(t.valor) === valor && t.data === dados.data);
+    if (i === -1) return null;
+    return lista.splice(i, 1)[0];
+}
+
+// Corrige um lançamento pelo número do #extrato. mudancas: { valor, categoria, descricao, data, tipo, metodo, cartao }.
+// Devolve { antes, depois } ou null se o número não existir.
+function editarTransacao(conta, numero, mudancas) {
+    const t = conta.transacoes[numero - 1];
+    if (!t) return null;
+    const antes = { ...t };
+    if (mudancas.valor !== undefined) t.valor = arredondar(mudancas.valor);
+    if (mudancas.categoria) t.categoria = String(mudancas.categoria).toLowerCase();
+    if (mudancas.descricao) t.descricao = String(mudancas.descricao).slice(0, 80);
+    if (mudancas.data) t.data = mudancas.data;
+    if (mudancas.tipo) t.tipo = mudancas.tipo === 'receita' ? 'receita' : 'despesa';
+    if (mudancas.metodo) {
+        t.metodo = mudancas.metodo;
+        t.cartao = mudancas.metodo === 'credito' ? (mudancas.cartao || t.cartao || null) : null;
+    }
+    return { antes, depois: t };
+}
+
 function ehCredito(t) {
     return t.metodo === 'credito';
 }
@@ -362,7 +390,7 @@ function restaurarBackup(dados) {
 
 module.exports = {
     lerConta, alterarConta, todasAsContas,
-    adicionarTransacao, adicionarParcelado, removerTransacao, somarMeses,
+    adicionarTransacao, adicionarParcelado, removerTransacao, somarMeses, tirarRepetida, editarTransacao,
     saldoEmConta, agendadoEmConta, ehCredito, ehFuturo, nomeComParcela,
     acharCartao, salvarCartao, removerCartao, faturaDe, faturas, pagarFatura, avisoDoCartao,
     totalFixos, prioridadeValida, ORDEM_PRIORIDADE,

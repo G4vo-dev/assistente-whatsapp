@@ -2,17 +2,20 @@
 const config = require('./config');
 const { encontrarComando, sugerirComando } = require('./comandos');
 const { figurinhaAtiva } = require('./comandos/midia');
-const { audioAutomatico } = require('./comandos/assistente');
+const { audioAutomatico, extratoAtivo } = require('./comandos/assistente');
 const { enviar, foiEnviadaPeloBot } = require('./envio');
 const { conteudoDa, textoDo, temMidia, autorEhUmDos, numerosDoAutor } = require('./util/mensagem');
 const { carteiraDa } = require('./carteira');
 const avisos = require('./servicos/avisos');
+const confiaveis = require('./servicos/confiaveis');
 
-// Você (mensagens que saem do seu WhatsApp) sempre pode. Outras pessoas só se estiverem no PERMITIDOS do .env.
+// Você (mensagens que saem do seu WhatsApp) sempre pode. Outras pessoas só se estiverem no PERMITIDOS do .env
+// ou na lista de confiáveis (#confiar).
 function podeUsar(msg) {
     if (msg.key.fromMe) return true;
     if (config.LIBERADO_PARA_TODOS) return true;
-    return config.NUMEROS_PERMITIDOS.length > 0 && autorEhUmDos(msg.key, config.NUMEROS_PERMITIDOS);
+    if (config.NUMEROS_PERMITIDOS.length > 0 && autorEhUmDos(msg.key, config.NUMEROS_PERMITIDOS)) return true;
+    return confiaveis.autorEhConfiavel(msg.key);
 }
 
 function separarComando(texto) {
@@ -45,9 +48,14 @@ function criarContexto(bot, msg, conteudo, { resto = '', args = [], automatico =
 }
 
 async function rodar(comando, ctx) {
-    console.log(`▶️ ${config.PREFIXO}${comando.nome}${ctx.texto ? ' ' + ctx.texto : ''}${ctx.automatico ? ' (modo figurinha)' : ''}`);
+    const nome = `${config.PREFIXO}${comando.nome}`;
+    console.log(`▶️ ${nome}${ctx.texto ? ' ' + ctx.texto : ''}${ctx.automatico ? ' (automático)' : ''}`);
+    const inicio = Date.now();
     try {
         await comando.executar(ctx);
+        // ajuda a achar o que está lento: o log mostra quanto cada comando demorou
+        const segundos = (Date.now() - inicio) / 1000;
+        if (segundos >= 3) console.log(`⏱️ ${nome} levou ${segundos.toFixed(1)}s`);
     } catch (erro) {
         console.error(`❌ erro no ${config.PREFIXO}${comando.nome}:`, erro);
         await ctx.reagir('❌');
@@ -67,6 +75,12 @@ async function tratarMensagem(bot, msg) {
         // modo figurinha: foto/vídeo logo depois de um #s vira figurinha
         if (temMidia(conteudo) && figurinhaAtiva(msg.key.remoteJid)) {
             await rodar(encontrarComando('s'), criarContexto(bot, msg, conteudo, { automatico: true }));
+            return;
+        }
+        // modo extrato: prints mandados logo depois de um #lerextrato também são lidos
+        const ehPrint = conteudo?.imageMessage || conteudo?.documentMessage?.mimetype?.startsWith('application/pdf');
+        if (ehPrint && extratoAtivo(msg.key.remoteJid)) {
+            await rodar(encontrarComando('lerextrato'), criarContexto(bot, msg, conteudo, { automatico: true }));
             return;
         }
         // áudio na conversa com você mesmo: transcreve e lança se for gasto/ganho

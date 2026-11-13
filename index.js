@@ -1,6 +1,8 @@
+require('./src/silenciar'); // antes de tudo: tira as chaves de criptografia do log
 const { iniciarBot, SAIDA } = require('./src/conexao');
 const { pegarTrava } = require('./src/servicos/trava');
-const { RAIZ } = require('./src/config');
+const { copiarDeHoraEmHora } = require('./src/servicos/login');
+const { RAIZ, PASTA_AUTH, PASTA_AUTH_RESERVA } = require('./src/config');
 
 process.on('unhandledRejection', (erro) => console.error('⚠️ erro não tratado:', erro));
 
@@ -10,6 +12,7 @@ async function ligar() {
         console.log('   se foi pelo Termux:Boot, veja o que ele está fazendo com: npm run log');
         process.exit(SAIDA.OUTRA_COPIA);
     }
+    copiarDeHoraEmHora(PASTA_AUTH, PASTA_AUTH_RESERVA);
     console.log('🤖 iniciando o assistente...');
     await iniciarBot();
 }

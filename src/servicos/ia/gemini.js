@@ -31,8 +31,8 @@ async function gerar({ sistema, partes, temperatura }) {
             return texto;
         } catch (erro) {
             ultimoErro = erro;
-            // modelo inexistente ou no limite: tenta o próximo da lista
-            if (erro.status === 404 || erro.status === 429) continue;
+            // modelo inexistente, no limite ou sobrecarregado ("high demand"): tenta o próximo da lista
+            if ([404, 429, 500, 503].includes(erro.status) || erro.name === 'TimeoutError') continue;
             throw erro;
         }
     }

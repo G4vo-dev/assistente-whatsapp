@@ -1,5 +1,5 @@
 // Lançamentos feitos pela IA: o que foi escrito, falado ou fotografado vira uma lista de ações em JSON.
-// Usado pelo #iagerente, pelo áudio automático e pelo #comprovante.
+// Usado pelo #iagerente, pelo áudio automático, pelo #comprovante e pelo #lerextrato.
 const fin = require('./financas');
 const ia = require('./ia');
 const midia = require('./midia');
@@ -47,9 +47,35 @@ function promptDeComprovante(conta, observacao) {
         + (observacao ? `\nObservação do usuário: "${observacao}"` : '');
 }
 
+// Instruções para a IA ler o print (ou PDF) do extrato do banco ou da fatura do cartão.
+function promptDeExtrato(conta, observacao) {
+    return `Este arquivo deve ser um extrato bancário (print do app do banco, conta corrente, poupança ou carteira digital) ou uma fatura de cartão de crédito. Hoje é ${hojePorExtenso()}.\n`
+        + `Cartões de crédito cadastrados: ${conta.cartoes.map((c) => c.nome).join(', ') || 'nenhum'}.\n`
+        + 'Liste TODAS as movimentações que aparecem, uma por item, na mesma ordem do arquivo. Responda SOMENTE com uma lista JSON, sem explicação.\n'
+        + 'Cada item: {"acao":"despesa"|"receita","valor":numero positivo,"metodo":"pix"|"debito"|"credito"|"boleto"|"transferencia"|"dinheiro",'
+        + '"cartao":"nome do cartão se for fatura de cartão","categoria":"uma palavra (mercado, comida, transporte, contas, saude, lazer, compras, assinaturas, salario, transferencia, fatura, outros)",'
+        + '"data":"dd/mm/aaaa","descricao":"loja, pessoa ou serviço, curto"}\n'
+        + 'Regras:\n'
+        + '- Dinheiro que ENTROU (Pix recebido, salário, depósito, estorno, reembolso, resgate) é "receita". Dinheiro que SAIU (compra, Pix enviado, pagamento, tarifa, saque, aplicação) é "despesa". O valor é sempre positivo.\n'
+        + '- NÃO inclua linhas de saldo (saldo do dia, saldo anterior, saldo disponível), totais, limite, rendimento previsto nem propaganda.\n'
+        + '- Datas que aparecem como título ("12 NOV", "Hoje", "Ontem") valem para as linhas abaixo delas. Se a data não mostrar o ano, use o ano de hoje; se assim ela ficar depois de hoje, use o ano anterior.\n'
+        + '- Fatura de cartão de crédito: "metodo":"credito". Compra parcelada aparece como "03/10": use o valor da parcela mostrado e coloque "(3/10)" no fim da descrição. "Pagamento recebido" na fatura é "receita" com categoria "fatura".\n'
+        + '- Pagamento de fatura de cartão no extrato da conta: "despesa" com categoria "fatura".\n'
+        + '- Não invente nada. Se não der para ler o valor de uma linha, pule a linha.\n'
+        + 'Se o arquivo não for um extrato nem uma fatura, responda [].'
+        + (observacao ? `\nObservação do usuário: "${observacao}"` : '');
+}
+
+// Valor que a IA mandou: número (45.9) ou texto ("45,90", "-45,90", "R$ 1.200,00"). Sempre positivo.
+function valorDaAcao(v) {
+    const n = typeof v === 'number' ? v : lerValor(String(v ?? '').replace(/^[-−]\s*/, '').replace(/^r\$\s*/i, ''));
+    return Math.round(Math.abs(n) * 100) / 100;
+}
+
 // Aplica uma ação devolvida pela IA. Devolve o texto do que foi feito ou o motivo de não fazer.
-function aplicarAcao(conta, a, novas = []) {
-    const valor = typeof a.valor === 'number' ? Math.round(a.valor * 100) / 100 : lerValor(a.valor);
+// repetidas (opcional): lançamentos que já existiam; se a ação bater com um deles, é pulada (devolve null).
+function aplicarAcao(conta, a, novas = [], repetidas = null) {
+    const valor = valorDaAcao(a.valor);
     if (!(valor > 0)) return `⚠️ ignorei "${a.descricao || a.acao}": valor inválido`;
     const descricao = String(a.descricao || a.desc || a.titulo || a.acao).slice(0, 80);
     const acao = normalizar(a.acao);
@@ -63,17 +89,18 @@ function aplicarAcao(conta, a, novas = []) {
         }
         const dados = {
             tipo: acao, valor, metodo, cartao,
-            categoria: String(a.categoria || 'outros').split(/\s+/)[0],
+            categoria: String(a.categoria || 'outros').split(/\s+/)[0].toLowerCase(),
             data: lerData(a.data) || hojeISO(),
             descricao,
         };
         const parcelas = Math.min(48, Math.max(1, parseInt(a.parcelas, 10) || 1));
+        if (repetidas && parcelas === 1 && fin.tirarRepetida(repetidas, dados)) return null;
         const criadas = parcelas > 1 ? fin.adicionarParcelado(conta, dados, parcelas) : [fin.adicionarTransacao(conta, dados)];
         novas.push(...criadas.map((c) => c.transacao));
         const { transacao, numero } = criadas[0];
         const forma = cartao ? `💳 ${cartao}` : metodo;
         const vezes = parcelas > 1 ? ` · ${parcelas}x de ${reais(transacao.valor)}` : '';
-        return `${acao === 'receita' ? '🟢' : '🔴'} nº ${numero} ${transacao.descricao} · ${reais(valor)}${vezes} · ${forma} · ${dataCurta(transacao.data)}`;
+        return `${acao === 'receita' ? '🟢' : '🔴'} nº ${numero} ${transacao.descricao} · ${reais(valor)}${vezes} · ${forma} · ${dataCurta(transacao.data)} · 🏷️ ${transacao.categoria}`;
     }
     if (acao === 'fixo') {
         conta.fixos.push({ descricao, valor });
@@ -87,13 +114,32 @@ function aplicarAcao(conta, a, novas = []) {
     return `⚠️ ignorei uma ação desconhecida (${a.acao})`;
 }
 
-// Lança as ações na carteira e monta a resposta.
-function lancarAcoes(ref, acoes, titulo, prefixo) {
+function numeroDaLinha(linha = '') {
+    return (linha.match(/nº (\d+)/) || [])[1] || 1;
+}
+
+// Lança as ações na carteira e monta a resposta. Devolve { texto, lancadas, puladas }.
+// limite: quantas ações no máximo. pularRepetidas: não lança o que já estava anotado (mesmo tipo, valor e dia).
+function lancarAcoes(ref, acoes, titulo, prefixo, { limite = 20, pularRepetidas = false } = {}) {
     return fin.alterarConta(ref, (c) => {
         const novas = [];
-        const feitas = acoes.slice(0, 20).map((a) => aplicarAcao(c, a, novas));
+        const repetidas = pularRepetidas ? c.transacoes.slice() : null;
+        const resultado = acoes.slice(0, limite).map((a) => aplicarAcao(c, a, novas, repetidas));
+        const feitas = resultado.filter(Boolean);
+        const puladas = resultado.length - feitas.length;
         const resumo = novas.length ? depoisDeLancar(c, novas, prefixo) : '';
-        return `${titulo}\n\n${feitas.join('\n')}${resumo ? `\n\n${resumo}` : ''}\nerrou algo? ${prefixo}apagar [nº]`;
+        const p = prefixo;
+        let txt = titulo;
+        if (feitas.length) txt += `\n\n${feitas.join('\n')}`;
+        if (puladas) txt += `\n\n♻️ ${puladas} já estava${puladas > 1 ? 'm' : ''} anotado${puladas > 1 ? 's' : ''}, pulei para não repetir.`;
+        if (acoes.length > limite) txt += `\n⚠️ li só os ${limite} primeiros. mande o resto em outro print.`;
+        if (resumo) txt += `\n\n${resumo}`;
+        if (novas.length) {
+            txt += pularRepetidas
+                ? `\n\n✏️ *errou algo?*\n${p}editar [nº] [o que mudar] · ex: ${p}editar ${numeroDaLinha(feitas.find((l) => l.startsWith('🔴')) || feitas[0])} mercado\n${p}apagar [nº] para tirar um`
+                : `\nerrou algo? ${p}editar [nº] ou ${p}apagar [nº]`;
+        }
+        return { texto: txt, lancadas: novas.length, puladas };
     });
 }
 
@@ -106,7 +152,7 @@ async function lancarPorTexto(ref, texto, titulo, prefixo) {
     });
     const acoes = ia.extrairListaJson(resposta);
     if (!acoes?.length) return null;
-    return lancarAcoes(ref, acoes, titulo, prefixo);
+    return lancarAcoes(ref, acoes, titulo, prefixo).texto;
 }
 
 // Áudio do WhatsApp (alvo de acharMidia) -> texto.
@@ -117,4 +163,4 @@ async function transcrever(bot, alvo) {
     return ia.transcreverAudio(dados, `audio.${extensao}`, mimetype);
 }
 
-module.exports = { falaDeDinheiro, promptDeLancamento, promptDeComprovante, aplicarAcao, lancarAcoes, lancarPorTexto, transcrever };
+module.exports = { falaDeDinheiro, promptDeLancamento, promptDeComprovante, promptDeExtrato, valorDaAcao, aplicarAcao, lancarAcoes, lancarPorTexto, transcrever };

@@ -1,6 +1,7 @@
 // Lembretes salvos em arquivo: continuam valendo mesmo se o bot reiniciar ou a conexão cair.
 const { ler, salvar } = require('./armazenamento');
 const { novoId } = require('../util/id');
+const { proxima } = require('./recorrencia');
 
 const ARQUIVO = 'lembretes.json';
 const timers = new Map();
@@ -34,7 +35,14 @@ async function disparar(id) {
     try {
         if (!enviar) throw new Error('bot desconectado');
         await enviar(lembrete.jid, `⏰ *LEMBRETE:* ${lembrete.texto}`);
-        remover(id);
+        if (lembrete.regra) {
+            // lembrete que se repete: marca a próxima vez em vez de apagar
+            const proximo = { ...lembrete, quando: proxima(lembrete.regra, Date.now() + 1000) };
+            salvar(ARQUIVO, todos().map((l) => (l.id === id ? proximo : l)));
+            agendar(proximo);
+        } else {
+            remover(id);
+        }
     } catch (erro) {
         console.error(`⚠️ lembrete não enviado (${erro.message}). tento de novo em 30s.`);
         agendar(lembrete, 30000);
@@ -48,6 +56,14 @@ function criar(jid, minutos, texto) {
         quando: Date.now() + minutos * 60000,
         texto,
     };
+    salvar(ARQUIVO, [...todos(), lembrete]);
+    agendar(lembrete);
+    return lembrete;
+}
+
+// regra: { tipo: 'diario' | 'semanal' | 'mensal', hora, minuto, diaSemana?, diaMes? } (veja recorrencia.js)
+function criarRecorrente(jid, regra, texto) {
+    const lembrete = { id: novoId(), jid, quando: proxima(regra), texto, regra };
     salvar(ARQUIVO, [...todos(), lembrete]);
     agendar(lembrete);
     return lembrete;
@@ -86,4 +102,4 @@ function importar(lista) {
     retomarPendentes();
 }
 
-module.exports = { definirEnvio, criar, listar, cancelar, retomarPendentes, exportar, importar };
+module.exports = { definirEnvio, criar, criarRecorrente, listar, cancelar, retomarPendentes, exportar, importar };

@@ -1,6 +1,8 @@
 const fin = require('../servicos/financas');
 const { interpretarLancamento } = require('../servicos/lancamento');
 const { linhaDoExtrato, depoisDeLancar } = require('../servicos/financas-texto');
+const { lerNumeros, lerMudancas, oQueMudou } = require('../servicos/edicao');
+const assistente = require('./assistente');
 const { ehAdicionar, ehRemover } = require('./subcomandos');
 const { reais, lerValor, lerMes, dataCurta, nomeDoMes, mesAtual, normalizar } = require('../util/formato');
 
@@ -91,9 +93,13 @@ module.exports = {
         {
             nome: 'extrato',
             uso: 'extrato [mês | cartão | categoria | tudo]',
-            descricao: 'lançamentos numerados',
-            exemplos: ['extrato', 'extrato 10/2026', 'extrato nubank', 'extrato comida', 'extrato tudo'],
+            descricao: 'lançamentos numerados (com um print do banco: lê o print)',
+            ajuda: 'mostra seus lançamentos com número, para usar no #editar e no #apagar. '
+                + 'se mandar junto o print do extrato do banco (na legenda ou respondendo), o bot lê o print e anota tudo (igual ao #lerextrato).',
+            exemplos: ['extrato', 'extrato 10/2026', 'extrato nubank', 'extrato comida', 'extrato tudo', 'extrato (na legenda do print do banco)'],
             async executar(ctx) {
+                // #extrato na legenda de um print (ou respondendo um print): lê o extrato do banco
+                if (assistente.arquivoDaMensagem(ctx)) return assistente.lerExtrato(ctx);
                 const conta = fin.lerConta(ctx.conta);
                 if (!conta.transacoes.length) {
                     return ctx.responder(`📊 nenhum lançamento ainda. comece com ${ctx.prefixo}receita ou ${ctx.prefixo}despesa.`);
@@ -124,7 +130,43 @@ module.exports = {
                 } else {
                     txt += `\n\n💰 saldo em conta: *${reais(fin.saldoEmConta(conta))}*`;
                 }
-                txt += `\n🗑️ para apagar: ${ctx.prefixo}apagar [nº]`;
+                txt += `\n✏️ corrigir: ${ctx.prefixo}editar [nº] [o que mudar] · 🗑️ apagar: ${ctx.prefixo}apagar [nº]`;
+                await ctx.responder(txt);
+            },
+        },
+        {
+            nome: 'editar',
+            apelidos: ['corrigir', 'mudar', 'alterar'],
+            uso: 'editar [nº] [o que mudar]',
+            descricao: 'corrige um lançamento (valor, categoria, data, método...)',
+            ajuda: 'use o número que aparece no #extrato ou na resposta do #lerextrato. '
+                + 'pode escrever o campo (valor, categoria, descricao, data, tipo, metodo, cartao) ou só o novo valor: '
+                + 'um número muda o valor, 15/11 muda a data, pix/debito/credito muda o método, o nome de um cartão vira crédito nele, '
+                + 'receita/despesa muda o tipo, e uma palavra solta vira a categoria (as seguintes viram a descrição). '
+                + 'vários de uma vez: #editar 3,5,7 mercado ou #editar 3-7 mercado.',
+            exemplos: ['editar 12 mercado', 'editar 12 valor 45,90', 'editar 12 descricao padaria do zé', 'editar 12 15/11', 'editar 12 nubank', 'editar 12 receita', 'editar 3,5,8-10 transporte'],
+            async executar(ctx) {
+                const p = ctx.prefixo;
+                const numeros = lerNumeros(ctx.args[0]);
+                if (!numeros || ctx.args.length < 2) {
+                    return ctx.responder(`✏️ uso: ${p}editar [nº] [o que mudar]\nex: ${p}editar 12 mercado · ${p}editar 12 valor 45,90 · ${p}editar 12 descricao padaria\nveja os números em ${p}extrato · mais exemplos: ${p}ajuda editar`);
+                }
+                const conta = fin.lerConta(ctx.conta);
+                const lido = lerMudancas(ctx.args.slice(1), conta.cartoes, p);
+                if (lido.erro) return ctx.responder(`❌ ${lido.erro}\nex: ${p}editar ${numeros[0]} mercado · ${p}editar ${numeros[0]} valor 45,90\nmais exemplos: ${p}ajuda editar`);
+                const faltando = numeros.filter((n) => !conta.transacoes[n - 1]);
+                if (faltando.length === numeros.length) return ctx.responder(`❌ não achei o lançamento ${faltando.join(', ')}. veja os números em ${p}extrato`);
+                const linhas = fin.alterarConta(ctx.conta, (c) => numeros.filter((n) => !faltando.includes(n)).map((n) => {
+                    const { antes, depois } = fin.editarTransacao(c, n, lido.mudancas);
+                    const mudou = oQueMudou(antes, depois);
+                    return `${linhaDoExtrato(depois, n)}${mudou.length ? `\n   ↳ ${mudou.join(' · ')}` : '\n   ↳ já estava assim'}`;
+                }));
+                let txt = `✏️ *editado*\n\n${linhas.join('\n')}`;
+                if (faltando.length) txt += `\n\n⚠️ não achei: ${faltando.join(', ')}`;
+                if (lido.mudancas.valor !== undefined && numeros.length === 1 && conta.transacoes[numeros[0] - 1]?.parcela) {
+                    txt += '\n(mudei só esta parcela)';
+                }
+                txt += `\n\n💰 saldo em conta: *${reais(fin.saldoEmConta(fin.lerConta(ctx.conta)))}*`;
                 await ctx.responder(txt);
             },
         },

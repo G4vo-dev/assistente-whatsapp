@@ -102,10 +102,13 @@ test('avisos automáticos: contas fixas, resumos e backup, uma vez por dia', asy
 });
 
 test('#backup, #restaurar e #exportar', async () => {
+    await enviar('#anotar senha do wifi está na geladeira');
     const bot = await enviar('#backup');
     const arquivo = bot.enviadas.at(-1).conteudo;
     assert.ok(arquivo.fileName.startsWith('backup-assistente-'));
+    assert.strictEqual(JSON.parse(arquivo.document.toString('utf8')).versao, 2);
     await enviar('#despesa 999 pix teste apagar depois');
+    await enviar('#notas apagar 1');
     assert.ok((await enviar('#extrato')).ultima().includes('R$ 999,00'));
 
     midia.baixarDaMensagem = async () => arquivo.document;
@@ -113,6 +116,15 @@ test('#backup, #restaurar e #exportar', async () => {
     assert.ok((await enviar('', {}, respondendo('#restaurar', doc))).ultima().includes('restaurar confirmar'));
     assert.ok((await enviar('', {}, respondendo('#restaurar confirmar', doc))).ultima().includes('restaurado'));
     assert.ok(!(await enviar('#extrato')).ultima().includes('R$ 999,00'));
+    assert.ok((await enviar('#notas')).ultima().includes('senha do wifi'), 'as anotações voltam junto');
+
+    // backup da versão 1 (sem anotações) continua restaurando e não apaga as anotações atuais
+    const antigo = JSON.parse(arquivo.document.toString('utf8'));
+    delete antigo.notas;
+    antigo.versao = 1;
+    midia.baixarDaMensagem = async () => Buffer.from(JSON.stringify(antigo));
+    assert.ok((await enviar('', {}, respondendo('#restaurar confirmar', doc))).ultima().includes('restaurado'));
+    assert.ok((await enviar('#notas')).ultima().includes('senha do wifi'));
 
     const planilha = (await enviar('#exportar 11/2026')).enviadas.at(-1).conteudo;
     const csv = planilha.document.toString('utf8');
