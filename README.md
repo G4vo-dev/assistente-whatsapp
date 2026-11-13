@@ -81,6 +81,7 @@ Trecho da saída de `npm run demo -- --roteiro` (sem os asteriscos de negrito do
 - Áudio na conversa com você mesmo vira texto e, se falar de dinheiro, vira lançamento.
 - `#comprovante`: foto, print ou PDF de pagamento vira lançamento.
 - `#lerextrato`: o print (ou PDF) do extrato do banco ou da fatura do cartão vira um lançamento por linha. O que já estava anotado é pulado, e prints mandados logo depois também são lidos.
+- `#chave`: cada pessoa que usa o bot pode colocar a própria chave de IA (todas têm plano grátis); os comandos dela passam a gastar a cota dela, não a do dono.
 - `#estudar [tema]` explica passo a passo; `#quiz [tema]` faz uma pergunta e `#resposta` corrige e conta os acertos.
 - Perguntas livres, tradução e dicas financeiras.
 
@@ -120,6 +121,7 @@ flowchart LR
 
 ### Decisões técnicas
 - **Fila de IAs com reserva:** cada tarefa tem uma ordem de provedores, começando pelo melhor naquilo (Whisper da Groq para áudio, Gemini para imagem e PDF). Se um falha ou bate no limite do plano grátis, o próximo assume na hora; quem bateu no limite fica "descansando" alguns minutos, respeitando o `retry-after`. O Gemini sobrecarregado tenta o modelo reserva dele antes de passar a vez, e um modelo que a Groq desligou é trocado sozinho pelo substituto.
+- **Uma chave por pessoa:** cada comando roda "dentro" de quem o mandou (`AsyncLocalStorage` do Node), e cada IA pede a chave na hora do pedido, então a chave certa chega até a chamada sem passar a pessoa de função em função. O limite é contado por chave: a de um amigo bater no limite não para a do dono. A chave é testada antes de ser guardada, nunca aparece inteira nas respostas nem no log, não vai para o backup, e o bot recusa chave mandada em grupo.
 - **Resposta rápida onde não precisa pensar:** lançar gastos e ler comprovantes pede à IA zero "raciocínio" (é só copiar números); a conversa pensa pouco, e isso é ajustável no `.env`.
 - **Uma mensagem não segura as outras:** cada mensagem é tratada por conta própria, então uma IA demorando não atrasa um `#saldo` mandado logo depois.
 - **Extrato sem repetição:** ao ler o print do banco, cada linha é comparada com o que já existe (mesmo tipo, valor e dia) e pulada se já estava anotada; duas compras iguais no mesmo dia contam como duas.
@@ -132,7 +134,7 @@ flowchart LR
 - **Login protegido:** a pasta do login é copiada a cada hora para `auth_info_baileys.reserva`, só quando o `creds.json` está íntegro (uma cópia estragada nunca substitui uma boa).
 - **Mensagem "trancada":** quando o WhatsApp troca a chave de criptografia e a mensagem chega sem poder ser aberta, o bot espera 20 s pelo reenvio e, se não vier, avisa para mandar de novo, em vez de ficar calado. As mensagens enviadas ficam guardadas para o celular conseguir pedir o reenvio delas.
 - **Log limpo:** as chaves de criptografia que a biblioteca escreve no log viram uma linha curta; `DEBUG_MSG=1` mostra uma linha por mensagem recebida, para descobrir se ela chegou.
-- **Testes sem WhatsApp:** 113 testes com um WhatsApp simulado cobrem finanças, leitura de extrato, edição, fila de IAs, agenda, backup, lembretes que repetem, privacidade, mensagem trancada e conversão de mídia com ffmpeg de verdade. O GitHub Actions roda o lint e os testes a cada mudança, no Node 20, 22 e 24.
+- **Testes sem WhatsApp:** 123 testes com um WhatsApp simulado cobrem finanças, leitura de extrato, edição, fila de IAs, chave de cada pessoa, agenda, backup, lembretes que repetem, privacidade, mensagem trancada e conversão de mídia com ffmpeg de verdade. O GitHub Actions roda o lint e os testes a cada mudança, no Node 20, 22 e 24.
 
 ## Rodando no WhatsApp
 
@@ -175,7 +177,7 @@ test/                 testes com WhatsApp simulado
 
 ## English summary
 
-Personal WhatsApp assistant in Node.js (runs even on an Android phone via Termux): expense tracking with credit cards, installments, budgets and goals; AI features with a provider queue and automatic fallback (Groq, Gemini, Mistral, OpenRouter) for chat, voice notes, receipt photos, PDFs and bank statement screenshots; notes, lists and recurring reminders; stickers with ffmpeg; scheduled summaries and backups. Try it without WhatsApp: `npm install && npm run demo -- --roteiro`. 113 automated tests run against a simulated WhatsApp.
+Personal WhatsApp assistant in Node.js (runs even on an Android phone via Termux): expense tracking with credit cards, installments, budgets and goals; AI features with a provider queue and automatic fallback (Groq, Gemini, Mistral, OpenRouter) for chat, voice notes, receipt photos, PDFs and bank statement screenshots; notes, lists and recurring reminders; stickers with ffmpeg; scheduled summaries and backups. Try it without WhatsApp: `npm install && npm run demo -- --roteiro`. Each user can bring their own AI key (`#chave`). 123 automated tests run against a simulated WhatsApp.
 
 ## Licença
 

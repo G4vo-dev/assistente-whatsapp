@@ -85,7 +85,9 @@ function depurar(type, msg) {
     const jid = String(msg.key?.remoteJid || '?');
     const onde = jid.endsWith('@g.us') ? 'grupo' : jid.endsWith('@lid') ? 'privado(lid)' : jid.endsWith('@s.whatsapp.net') ? 'privado(número)' : jid;
     const tipo = msg.message ? Object.keys(msg.message).filter((k) => k !== 'messageContextInfo').join(',') : `sem conteúdo (stub ${msg.messageStubType ?? '-'})`;
-    const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+    let texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+    // nunca mostra chave de IA (#chave ...) no log
+    if (/^\W?\s*(chave|chaves|minhachave|apikey)\b/i.test(texto)) texto = '(chave escondida)';
     const atraso = Math.round(Date.now() / 1000 - (Number(msg.messageTimestamp) || 0));
     console.log(`🔎 ${type} · ${msg.key?.fromMe ? 'você' : 'outra pessoa'} · ${onde} · ${tipo} · ${atraso}s${texto ? ` · "${texto.slice(0, 12)}"` : ''}`);
 }

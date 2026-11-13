@@ -29,6 +29,7 @@ Tudo fica **só no aparelho do dono**, na pasta `dados/`:
 | `dados/lembretes.json` | lembretes marcados (inclusive os que se repetem) | `#cancelar [nº]` |
 | `dados/notas.json` | anotações e listas de cada conversa | `#notas apagar [nº]` e `#lista [nome] limpar` |
 | `dados/confiaveis.json` | números que o dono liberou com `#confiar` | `#desconfiar [número]` |
+| `dados/chaves.json` | chaves de IA que cada pessoa colocou com `#chave` (fora do backup; o arquivo só pode ser lido pelo usuário do aparelho, onde o sistema permitir) | `#chave remover tudo` |
 | `dados/backups/` | cópias de segurança antes de resets e restaurações, e o backup diário das 4h (últimos 7 dias) | apagar os arquivos da pasta |
 | `dados/bot.log` | registro dos comandos (só quando ligado pelo Termux:Boot) | apagar o arquivo |
 | `dados/avisos.json`, `dados/agenda.json` | controle dos avisos já mostrados | apagar o arquivo |
@@ -54,6 +55,12 @@ Só quando você usa um comando que precisa deles:
 - Comprovantes, prints de extrato, áudios e mensagens podem ter **dados de terceiros** (nome, CPF, banco, voz). Só mande para o bot o que você tem direito de usar, e evite mandar dados de outras pessoas para a IA sem necessidade.
 - Se você liberar o bot para outras pessoas (`PERMITIDOS` no `.env` ou `#confiar`), na primeira vez que cada uma usar ela recebe um aviso de privacidade, e pode ver os detalhes com `#privacidade`. Ela pode apagar as próprias finanças a qualquer momento com `#resetfin tudo confirmar`. Se ela pedir para apagar tudo, atenda.
 - Quem foi liberado só mexe na carteira, nas anotações e nas listas da própria conversa. `#backup`, `#restaurar` e `#avisos` são só do dono, porque o arquivo de backup tem os dados de todas as conversas. `#confiar`, `#desconfiar` e `#confiaveis` também são só do dono.
+
+### Chaves de IA de cada pessoa (`#chave`)
+- Quem usa o bot pode colocar a própria chave de IA. Os comandos dessa pessoa passam a usar a chave dela; os de mais ninguém usam.
+- A chave fica guardada **no aparelho do dono do bot**, sem criptografia: quem controla o aparelho consegue lê-la. E como o bot roda no número do dono, a mensagem com a chave também chega ao WhatsApp do dono (o bot tenta apagá-la de lá, mas o WhatsApp não deixa apagar do celular de quem mandou). Por isso, **crie uma chave só para isto** e apague-a no site da IA quando quiser parar.
+- O bot testa a chave antes de guardar, nunca mostra a chave inteira, não a escreve no registro (`bot.log`) e não a coloca no arquivo de backup. Chave mandada em grupo não é guardada: troque-a, porque ela ficou visível.
+- O dono decide se quem não tem chave própria usa as dele (`EMPRESTAR_CHAVES` no `.env`).
 
 ## 4. Direitos autorais e direito de imagem
 
@@ -84,7 +91,7 @@ Só quando você usa um comando que precisa deles:
 
 ## 7. Segurança
 
-- Nunca compartilhe o arquivo `.env` (chaves das IAs) nem as pastas `auth_info_baileys/` e `auth_info_baileys.reserva/` (dão acesso ao seu WhatsApp).
+- Nunca compartilhe o arquivo `.env` (chaves das IAs), o `dados/chaves.json` (chaves das outras pessoas) nem as pastas `auth_info_baileys/` e `auth_info_baileys.reserva/` (dão acesso ao seu WhatsApp).
 - Se você fizer um fork, nunca suba o `.env`, a pasta `dados/` nem as pastas do login (o `.gitignore` já impede).
 - De tempos em tempos, confira em WhatsApp > Aparelhos conectados se só os seus aparelhos estão lá.
 - Guarde o arquivo de backup num lugar seguro (por exemplo, no seu Google Drive), porque ele tem as suas finanças e anotações.

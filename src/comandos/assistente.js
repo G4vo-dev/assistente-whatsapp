@@ -4,7 +4,8 @@ const ia = require('../servicos/ia');
 const midia = require('../servicos/midia');
 const lancamentoIA = require('../servicos/lancamento-ia');
 const { acharMidia } = require('../util/mensagem');
-const { IA_MODO_PRIVADO } = require('../config');
+const { IA_MODO_PRIVADO, PREFIXO } = require('../config');
+const chaves = require('../servicos/ia/chaves');
 const { metodoConhecido } = require('../servicos/financas-modelo');
 
 const TIPOS_AUDIO = ['audioMessage'];
@@ -42,11 +43,12 @@ function arquivoDaMensagem(ctx) {
 // Motivo para não conseguir ler o arquivo agora, ou null se dá para ler.
 function semIAParaArquivo(ehPdf) {
     if (ehPdf && !ia.iaLigada('pdf')) {
-        return IA_MODO_PRIVADO
-            ? '🔒 o modo privado está ligado e só o Gemini lê PDF. mande um print (foto da tela).'
-            : '❌ para ler PDF, coloque a GEMINI_API_KEY no .env (ou mande um print, foto da tela).';
+        if (IA_MODO_PRIVADO) return '🔒 o modo privado está ligado e só o Gemini lê PDF. mande um print (foto da tela).';
+        return chaves.ehDono()
+            ? '❌ para ler PDF, coloque a GEMINI_API_KEY no .env (ou mande um print, foto da tela).'
+            : `❌ para ler PDF, coloque a sua chave do Gemini com ${PREFIXO}chave gemini [sua chave] (ou mande um print, foto da tela).`;
     }
-    if (!ia.iaLigada(ehPdf ? 'pdf' : 'imagem')) return ia.SEM_CHAVE;
+    if (!ia.iaLigada(ehPdf ? 'pdf' : 'imagem')) return ia.semChave();
     return null;
 }
 
@@ -152,7 +154,7 @@ module.exports = {
             async executar(ctx) {
                 const alvo = acharMidia(ctx.msg, ctx.conteudo, TIPOS_AUDIO);
                 if (!alvo) return ctx.responder(`❌ responda um áudio com ${ctx.prefixo}transcrever`);
-                if (!ia.iaLigada('audio')) return ctx.responder(ia.SEM_CHAVE);
+                if (!ia.iaLigada('audio')) return ctx.responder(ia.semChave());
                 await ctx.reagir('⏳');
                 const texto = await lancamentoIA.transcrever(ctx.bot, alvo);
                 await ctx.responder(texto ? `🎙️ ${texto}` : '🤷 não entendi nada nesse áudio.', { citar: true });

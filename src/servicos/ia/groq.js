@@ -1,14 +1,16 @@
 // Groq: a mais rápida. Texto e imagem (qwen3.8) e áudio (Whisper, o melhor para transcrever).
 const Groq = require('groq-sdk');
-const { GROQ_API_KEY, GROQ_MODELO, GROQ_MODELO_AUDIO, GROQ_MODELO_VISAO, IA_RACIOCINIO } = require('../../config');
+const { GROQ_MODELO, GROQ_MODELO_AUDIO, GROQ_MODELO_VISAO, IA_RACIOCINIO } = require('../../config');
+const { chaveDe } = require('./chaves');
 
-let cliente = null;
+const clientes = new Map(); // um cliente por chave (cada pessoa pode ter a sua: #chave)
 
 // maxRetries 0: se a Groq bater no limite, a fila passa na hora para a próxima IA.
 // (com 1, a biblioteca ficava parada esperando o tempo que a Groq pedisse, às vezes quase 1 minuto.)
 function obterCliente() {
-    if (!cliente) cliente = new Groq({ apiKey: GROQ_API_KEY, timeout: 60000, maxRetries: 0 });
-    return cliente;
+    const chave = chaveDe('groq');
+    if (!clientes.has(chave)) clientes.set(chave, new Groq({ apiKey: chave, timeout: 60000, maxRetries: 0 }));
+    return clientes.get(chave);
 }
 
 // Quanto o modelo "pensa" antes de responder. Pensar mais = resposta melhor, porém mais demorada.
@@ -39,7 +41,7 @@ module.exports = {
     nome: 'groq',
     titulo: 'Groq',
     sabe: { texto: true, imagem: true, pdf: false, audio: true },
-    ligado: () => Boolean(GROQ_API_KEY),
+    ligado: () => Boolean(chaveDe('groq')),
 
     async texto({ sistema, pergunta, maxTokens, temperatura, raciocinio }) {
         const resposta = await criarComRaciocinio({

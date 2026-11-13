@@ -1,11 +1,12 @@
 // Mistral: plano grátis com muitos tokens por mês. Boa reserva para texto e imagem.
-const { MISTRAL_API_KEY, MISTRAL_MODELO } = require('../../config');
+const { MISTRAL_MODELO } = require('../../config');
+const { chaveDe } = require('./chaves');
 const { postarJson, textoDoChat } = require('./http');
 
 const URL = 'https://api.mistral.ai/v1/chat/completions';
 
 async function conversar(mensagens, { maxTokens, temperatura }) {
-    const dados = await postarJson(URL, { Authorization: `Bearer ${MISTRAL_API_KEY}` }, {
+    const dados = await postarJson(URL, { Authorization: `Bearer ${chaveDe('mistral')}` }, {
         model: MISTRAL_MODELO,
         max_tokens: maxTokens,
         temperature: temperatura,
@@ -18,7 +19,7 @@ module.exports = {
     nome: 'mistral',
     titulo: 'Mistral',
     sabe: { texto: true, imagem: true, pdf: false, audio: false },
-    ligado: () => Boolean(MISTRAL_API_KEY),
+    ligado: () => Boolean(chaveDe('mistral')),
 
     texto({ sistema, pergunta, maxTokens, temperatura }) {
         return conversar([

@@ -1,5 +1,7 @@
 // O que o resto do bot usa para falar com IA. Por baixo, cada pedido passa pela fila de IAs (fila.js).
 const fila = require('./fila');
+const chaves = require('./chaves');
+const { PREFIXO } = require('../../config');
 
 const REGRAS_DE_FORMATO = 'responda em português, de forma direta e completa, sem enrolação. '
     + 'use a formatação do WhatsApp (*negrito*, _itálico_) e não use markdown com ## ou **.';
@@ -20,6 +22,13 @@ function limiteDeResposta() {
 }
 
 const SEM_CHAVE = '❌ IA desligada: coloque a chave de pelo menos uma IA (GROQ_API_KEY ou GEMINI_API_KEY) no arquivo .env e reinicie o bot.';
+
+// Sem IA: o dono coloca a chave no .env (ou com #chave); quem não é o dono coloca a própria com #chave.
+function semChave() {
+    if (chaves.ehDono()) return SEM_CHAVE;
+    return `❌ a IA não está liberada para você. coloque a sua chave (é grátis): ${PREFIXO}chave groq [sua chave]\n`
+        + `pegue em ${chaves.IAS.groq.site} · mande no privado comigo · detalhes: ${PREFIXO}ajuda chave`;
+}
 
 function iaLigada(tarefa = 'texto') {
     return fila.disponivel(tarefa);
@@ -42,7 +51,7 @@ function ehFalha(resposta) {
 }
 
 function mensagemDeFalha(tarefa, erro) {
-    if (!fila.disponivel(tarefa)) return SEM_CHAVE;
+    if (!fila.disponivel(tarefa)) return semChave();
     return `❌ ${erro.message}. tente de novo em alguns minutos.`;
 }
 
@@ -67,7 +76,9 @@ async function perguntarSobreImagem(dados, tipo, pergunta, { maxTokens = 800, te
         return limparResposta(texto);
     } catch (erro) {
         if (tarefa === 'pdf' && !fila.disponivel('pdf')) {
-            return '❌ para ler PDF, coloque a GEMINI_API_KEY no .env (ou mande um print do comprovante).';
+            return chaves.ehDono()
+                ? '❌ para ler PDF, coloque a GEMINI_API_KEY no .env (ou mande um print do comprovante).'
+                : `❌ para ler PDF, coloque a sua chave do Gemini: ${PREFIXO}chave gemini [sua chave] (ou mande um print do comprovante).`;
         }
         return mensagemDeFalha(tarefa, erro);
     }
@@ -105,5 +116,5 @@ function extrairListaJson(texto) {
 
 module.exports = {
     perguntarIA, perguntarSobreImagem, transcreverAudio, extrairListaJson, limparResposta, iaLigada, ehFalha,
-    situacao: fila.situacao, SEM_CHAVE,
+    situacao: fila.situacao, SEM_CHAVE, semChave,
 };

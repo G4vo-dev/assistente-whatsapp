@@ -1,6 +1,8 @@
 // Fila de IAs: cada tarefa tem uma ordem (config FILAS_IA). Tenta a primeira; se falhar ou bater no limite,
 // passa para a próxima. Quem bate no limite fica "descansando" um tempo e é pulado direto.
+// O descanso é de cada chave: se a chave de uma pessoa (#chave) bate no limite, a do dono continua valendo.
 const { FILAS_IA } = require('../../config');
+const { idDaChave } = require('./chaves');
 
 const PROVEDORES = {
     groq: require('./groq'),
@@ -12,7 +14,7 @@ const PROVEDORES = {
 // tarefa -> o que a IA precisa saber fazer
 const CAPACIDADE = { texto: 'texto', financas: 'texto', imagem: 'imagem', pdf: 'pdf', audio: 'audio' };
 
-const descanso = new Map(); // "groq:texto" -> { ate: timestamp, motivo }
+const descanso = new Map(); // "groq:<id da chave>:texto" -> { ate: timestamp, motivo }
 const usos = {};
 const ultimosErros = {};
 
@@ -50,15 +52,16 @@ function registrarFalha(nome, capacidade, erro) {
         motivo = 'sem créditos';
     }
     ultimosErros[nome] = { quando: Date.now(), mensagem: String(erro?.message || erro).slice(0, 160) };
-    if (segundos) descanso.set(`${nome}:${capacidade}`, { ate: Date.now() + segundos * 1000, motivo });
+    if (segundos) descanso.set(`${nome}:${idDaChave(nome)}:${capacidade}`, { ate: Date.now() + segundos * 1000, motivo });
     return motivo || String(erro?.message || 'erro').slice(0, 80);
 }
 
 function descansando(nome, capacidade) {
-    const d = descanso.get(`${nome}:${capacidade}`);
+    const chave = `${nome}:${idDaChave(nome)}:${capacidade}`;
+    const d = descanso.get(chave);
     if (!d) return null;
     if (d.ate <= Date.now()) {
-        descanso.delete(`${nome}:${capacidade}`);
+        descanso.delete(chave);
         return null;
     }
     return d;

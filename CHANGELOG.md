@@ -3,6 +3,19 @@
 Todas as mudanças importantes do projeto, da mais nova para a mais antiga.
 O formato segue a ideia do [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e os números de versão seguem o [SemVer](https://semver.org/lang/pt-BR/): o primeiro número muda quando algo deixa de funcionar como antes, o do meio quando entra função nova e o último quando é só correção.
 
+## [1.2.0] - 2026-11-13
+
+### Adicionado
+- `#chave [ia] [chave]`: cada pessoa que usa o bot coloca a própria chave da Groq, do Gemini, da Mistral ou do OpenRouter, e os comandos dela passam a gastar a cota dela. Sem o nome da IA, o bot descobre pelo jeito da chave. `#chave` mostra de quem é cada chave; `#chave remover groq` (ou `tudo`) tira.
+- O bot testa a chave antes de guardar, apaga a mensagem com a chave quando consegue, recusa chave mandada em grupo, nunca mostra a chave inteira nem a escreve no log, e não a coloca no backup.
+- `EMPRESTAR_CHAVES` no `.env`: com `nao`, quem não colocou a própria chave fica sem IA (o padrão, `sim`, mantém como era: usa as do dono).
+- O dono também pode colocar as chaves dele por `#chave`, sem mexer no `.env`.
+
+### Mudado
+- O limite das IAs é contado por chave: a chave de uma pessoa bater no limite não deixa as outras "descansando".
+- Para quem não é o dono, a mensagem de "IA desligada" e o `#ias` explicam como colocar a própria chave.
+- Os testes passaram de 113 para 123.
+
 ## [1.1.0] - 2026-11-13
 
 Traz para cá o que o bot pessoal do autor (o bity, versões 3.4.0 a 3.5.3) ganhou depois que este projeto foi publicado. O prefixo continua `#`.

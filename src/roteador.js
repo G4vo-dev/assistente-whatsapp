@@ -8,6 +8,7 @@ const { conteudoDa, textoDo, temMidia, autorEhUmDos, numerosDoAutor } = require(
 const { carteiraDa } = require('./carteira');
 const avisos = require('./servicos/avisos');
 const confiaveis = require('./servicos/confiaveis');
+const chaves = require('./servicos/ia/chaves');
 
 // Você (mensagens que saem do seu WhatsApp) sempre pode. Outras pessoas só se estiverem no PERMITIDOS do .env
 // ou na lista de confiáveis (#confiar).
@@ -49,10 +50,13 @@ function criarContexto(bot, msg, conteudo, { resto = '', args = [], automatico =
 
 async function rodar(comando, ctx) {
     const nome = `${config.PREFIXO}${comando.nome}`;
-    console.log(`▶️ ${nome}${ctx.texto ? ' ' + ctx.texto : ''}${ctx.automatico ? ' (automático)' : ''}`);
+    // comando com segredo (#chave): o log nunca mostra o que veio depois dele
+    const texto = ctx.texto ? ` ${comando.segredo ? '[escondido]' : ctx.texto}` : '';
+    console.log(`▶️ ${nome}${texto}${ctx.automatico ? ' (automático)' : ''}`);
     const inicio = Date.now();
     try {
-        await comando.executar(ctx);
+        // os pedidos à IA feitos por este comando usam as chaves de quem mandou (#chave)
+        await chaves.comChaves(chaves.pessoaDaMensagem(ctx.msg.key), () => comando.executar(ctx));
         // ajuda a achar o que está lento: o log mostra quanto cada comando demorou
         const segundos = (Date.now() - inicio) / 1000;
         if (segundos >= 3) console.log(`⏱️ ${nome} levou ${segundos.toFixed(1)}s`);
