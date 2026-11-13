@@ -3,6 +3,7 @@ node_modules/
 
 # login do WhatsApp: nunca suba isso pro GitHub
 auth_info_baileys/
+auth_info_baileys.reserva/
 sessions/
 
 # seus dados (finanças, lembretes e backups)

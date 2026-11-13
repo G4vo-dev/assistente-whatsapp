@@ -1,4 +1,5 @@
 const lembretes = require('../servicos/lembretes');
+const { lerRegra, descrever } = require('../servicos/recorrencia');
 const { reais, dataHora } = require('../util/formato');
 const { buscarJson } = require('../util/web');
 
@@ -51,12 +52,19 @@ module.exports = {
             nome: 'lembrar',
             apelidos: ['lembrete'],
             uso: 'lembrar [tempo] [msg]',
-            descricao: 'avisa depois (10, 30m, 2h, 1h30)',
+            descricao: 'avisa depois (10, 30m, 2h, 1h30) ou repete (todo dia 8h...)',
+            ajuda: 'o tempo pode ser 10, 30m, 2h, 1h30. para repetir: "todo dia 8h", "toda segunda 8h30" ou "todo mês dia 5 9h". horário de Brasília.',
+            exemplos: ['lembrar 10 tirar a comida do fogo', 'lembrar todo dia 8h tomar remédio', 'lembrar toda segunda 8h30 reunião', 'lembrar todo mês dia 5 9h pagar o aluguel'],
             async executar(ctx) {
+                const repetido = lerRegra(ctx.args);
+                if (repetido) {
+                    const l = lembretes.criarRecorrente(ctx.jid, repetido.regra, repetido.texto);
+                    return ctx.responder(`🔁 lembrete marcado: ${descrever(repetido.regra)}. o próximo é ${dataHora(l.quando)}.\npara parar: ${ctx.prefixo}cancelar [número]`);
+                }
                 const minutos = lerMinutos(ctx.args[0]);
                 const texto = ctx.texto.slice(String(ctx.args[0] || '').length).trim();
                 if (!(minutos > 0) || !texto) {
-                    return ctx.responder(`❌ uso: ${ctx.prefixo}lembrar 10 tirar a comida do fogo\n(também aceita 30m, 2h, 1h30)`);
+                    return ctx.responder(`❌ uso: ${ctx.prefixo}lembrar 10 tirar a comida do fogo\n(também aceita 30m, 2h, 1h30 ou todo dia 8h)`);
                 }
                 if (minutos > MAX_MINUTOS) return ctx.responder('❌ o máximo é 7 dias.');
                 const l = lembretes.criar(ctx.jid, minutos, texto);
@@ -70,7 +78,7 @@ module.exports = {
                 const lista = lembretes.listar(ctx.jid);
                 if (!lista.length) return ctx.responder('📭 nenhum lembrete marcado.');
                 let txt = '⏰ *lembretes*\n\n';
-                lista.forEach((l, i) => { txt += `${i + 1}. ${dataHora(l.quando)} · ${l.texto}\n`; });
+                lista.forEach((l, i) => { txt += `${i + 1}. ${l.regra ? '🔁 ' : ''}${dataHora(l.quando)} · ${l.texto}\n`; });
                 txt += `\npara cancelar: ${ctx.prefixo}cancelar [número]`;
                 await ctx.responder(txt);
             },

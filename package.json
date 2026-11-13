@@ -1,7 +1,7 @@
 {
   "name": "assistente-whatsapp",
-  "version": "1.0.0",
-  "description": "Assistente pessoal para WhatsApp em Node.js: finanças com cartões e parcelas, IA com fila de provedores (Groq, Gemini, Mistral, OpenRouter), áudio e comprovantes, figurinhas, lembretes e avisos automáticos.",
+  "version": "1.2.0",
+  "description": "Assistente pessoal para WhatsApp em Node.js: finanças com cartões e parcelas, IA com fila de provedores (Groq, Gemini, Mistral, OpenRouter), áudio, comprovantes e print do extrato, anotações e listas, figurinhas, lembretes e avisos automáticos.",
   "author": "Zet (https://github.com/G4vo-dev)",
   "license": "MIT",
   "keywords": [

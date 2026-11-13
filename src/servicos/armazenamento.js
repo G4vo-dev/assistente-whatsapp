@@ -51,4 +51,23 @@ function backup(arquivo) {
     return destino;
 }
 
-module.exports = { ler, salvar, existe, backup };
+// Guarda o backup do dia em dados/backups/diario-AAAA-MM-DD.json e mantém só os mais novos.
+function guardarBackupDiario(iso, texto, manter = 7) {
+    const pasta = caminho('backups');
+    fs.mkdirSync(pasta, { recursive: true });
+    fs.writeFileSync(path.join(pasta, `diario-${iso}.json`), texto);
+    const antigos = fs.readdirSync(pasta).filter((n) => /^diario-.*\.json$/.test(n)).sort().slice(0, -manter);
+    for (const nome of antigos) fs.rmSync(path.join(pasta, nome), { force: true });
+}
+
+// Data (AAAA-MM-DD) do backup diário mais novo guardado no aparelho, ou null.
+function ultimoBackupDiario() {
+    try {
+        const nomes = fs.readdirSync(caminho('backups')).filter((n) => /^diario-.*\.json$/.test(n)).sort();
+        return nomes.length ? nomes.at(-1).slice('diario-'.length, -'.json'.length) : null;
+    } catch {
+        return null;
+    }
+}
+
+module.exports = { ler, salvar, existe, backup, guardarBackupDiario, ultimoBackupDiario };

@@ -1,6 +1,7 @@
 // Google Gemini: o melhor para ler imagem e o único da fila que lê PDF. Também entende áudio.
 // Tenta os modelos de GEMINI_MODELO em ordem (se um não existir ou bater no limite, vai para o próximo).
-const { GEMINI_API_KEY, GEMINI_MODELO } = require('../../config');
+const { GEMINI_MODELO } = require('../../config');
+const { chaveDe } = require('./chaves');
 const { ErroDeIA, postarJson } = require('./http');
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -17,7 +18,7 @@ async function gerar({ sistema, partes, temperatura }) {
     let ultimoErro = null;
     for (const modelo of modelos()) {
         try {
-            const dados = await postarJson(`${BASE}/${modelo}:generateContent`, { 'x-goog-api-key': GEMINI_API_KEY }, {
+            const dados = await postarJson(`${BASE}/${modelo}:generateContent`, { 'x-goog-api-key': chaveDe('gemini') }, {
                 ...(sistema ? { systemInstruction: { parts: [{ text: sistema }] } } : {}),
                 contents: [{ role: 'user', parts: partes }],
                 generationConfig: { temperature: temperatura },
@@ -31,8 +32,8 @@ async function gerar({ sistema, partes, temperatura }) {
             return texto;
         } catch (erro) {
             ultimoErro = erro;
-            // modelo inexistente ou no limite: tenta o próximo da lista
-            if (erro.status === 404 || erro.status === 429) continue;
+            // modelo inexistente, no limite ou sobrecarregado ("high demand"): tenta o próximo da lista
+            if ([404, 429, 500, 503].includes(erro.status) || erro.name === 'TimeoutError') continue;
             throw erro;
         }
     }
@@ -43,7 +44,7 @@ module.exports = {
     nome: 'gemini',
     titulo: 'Google Gemini',
     sabe: { texto: true, imagem: true, pdf: true, audio: true },
-    ligado: () => Boolean(GEMINI_API_KEY),
+    ligado: () => Boolean(chaveDe('gemini')),
 
     texto({ sistema, pergunta, temperatura }) {
         return gerar({ sistema, partes: [{ text: pergunta }], temperatura });

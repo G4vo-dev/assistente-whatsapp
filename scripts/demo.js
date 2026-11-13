@@ -44,6 +44,7 @@ const ROTEIRO = [
     '#cartao adicionar nubank 2000',
     '#receita 3500 pix salario empresa',
     '#despesa 89,90 pix mercado compras da semana',
+    '#editar 2 valor 92,40',
     '#despesa 1200 nubank 6x eletronicos celular novo',
     '#limite ifood 150',
     '#despesa 45 ifood',
@@ -53,7 +54,8 @@ const ROTEIRO = [
     '#meta guardar 1 750',
     '#saldo',
     '#grafico',
-    '#lembrar 30m tirar a roupa do varal',
+    '#lista mercado add leite, pão, café',
+    '#lembrar todo dia 8h tomar remédio',
     '#sald',
 ];
 

@@ -2,7 +2,7 @@
 // Vão sempre para a conversa com você mesmo. O que já foi enviado fica anotado em dados/agenda.json.
 const fin = require('./servicos/financas');
 const backup = require('./servicos/backup');
-const { ler, salvar } = require('./servicos/armazenamento');
+const { ler, salvar, guardarBackupDiario } = require('./servicos/armazenamento');
 const { montarGrafico } = require('./servicos/financas-texto');
 const { enviar } = require('./envio');
 const { carteiraPropria, meuJid } = require('./carteira');
@@ -58,6 +58,7 @@ const TAREFAS = [
     { id: 'semanal', nome: 'resumo da semana', quando: 'domingo às 20h', hora: 20, diaSemana: 0 },
     { id: 'mensal', nome: 'fechamento do mês', quando: 'dia 1 às 9h', hora: 9, diaMes: 1 },
     { id: 'backup', nome: 'backup das finanças', quando: 'todo dia às 22h (se algo mudou)', hora: 22 },
+    { id: 'backuplocal', nome: 'backup guardado no aparelho (dados/backups, últimos 7 dias)', quando: 'todo dia às 4h', hora: 4 },
 ];
 
 // ---------- estado ----------
@@ -83,6 +84,11 @@ function listarTarefas() {
 
 // Prepara a mensagem de uma tarefa: { mensagem, depoisDeEnviar } ou null se não há nada a dizer.
 function prepararTarefa(id, bot, agora, { forcar = false } = {}) {
+    if (id === 'backuplocal') {
+        // só guarda o arquivo no aparelho; não manda mensagem (a não ser no #avisos testar)
+        guardarBackupDiario(agora.iso, backup.montarBackup().texto, 7);
+        return forcar ? { mensagem: { text: `💾 backup de hoje guardado em dados/backups/diario-${agora.iso}.json` } } : null;
+    }
     if (id === 'backup') {
         const { texto, assinatura } = backup.montarBackup();
         if (!forcar && assinatura === estado().assinaturaBackup) return null;

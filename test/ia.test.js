@@ -70,7 +70,7 @@ test('conversa vai até o OpenRouter; finanças nunca usa o OpenRouter', async (
     groq.texto = async () => { throw erro(503); };
     simularApis({ openrouter: () => respostaChat('do openrouter') });
     assert.strictEqual(await ia.perguntarIA('oi'), 'do openrouter');
-    assert.deepStrictEqual(pedidos.map((p) => p.quem), ['gemini', 'mistral', 'openrouter']);
+    assert.deepStrictEqual(pedidos.map((p) => p.quem), ['gemini', 'gemini', 'mistral', 'openrouter'], 'o Gemini tenta os dois modelos');
 
     fila.zerar();
     pedidos = [];
@@ -93,7 +93,7 @@ test('foto vai primeiro para o Gemini; PDF só o Gemini lê', async () => {
     const tipos = pedidos.map((p) => p.corpo.contents[0].parts[0].inlineData.mimeType);
     assert.deepStrictEqual(tipos, ['image/jpeg', 'application/pdf']);
 
-    // sem Gemini, foto cai na Groq (Llama 4 Scout)
+    // sem Gemini, foto cai na Groq (qwen3.8)
     fila.zerar();
     simularApis({ gemini: () => [429, { error: { message: 'quota' } }] });
     groq.arquivo = async ({ tipo }) => `groq viu ${tipo}`;
@@ -155,4 +155,16 @@ test('áudio com transferência, venda, saque ou gíria de dinheiro vira lançam
 test('links em markdown viram texto que o WhatsApp mostra direito', () => {
     assert.strictEqual(ia.limparResposta('baixe no [MCPEDL](https://mcpedl.com/addon)'), 'baixe no MCPEDL (https://mcpedl.com/addon)');
     assert.strictEqual(ia.limparResposta('site: [https://x.com](https://x.com)'), 'site: https://x.com');
+});
+
+test('Gemini sobrecarregado (503 "high demand"): tenta o modelo reserva dele antes de desistir', async () => {
+    simularApis({ gemini: (url) => (url.includes('/gemini-flash-latest:') ? [503, { error: { message: 'This model is currently experiencing high demand.' } }] : respostaGemini('leu no lite')) });
+    assert.strictEqual(await ia.perguntarSobreImagem(Buffer.from('foto'), 'image/png', '?'), 'leu no lite');
+    assert.deepStrictEqual(pedidos.map((p) => p.url.split('/models/')[1]), ['gemini-flash-latest:generateContent', 'gemini-flash-lite-latest:generateContent']);
+});
+
+test('modelo da Groq desligado no .env vira o substituto; imagem na Groq não "pensa"', () => {
+    const { MODELOS_DESLIGADOS } = require('../src/config');
+    assert.strictEqual(MODELOS_DESLIGADOS['meta-llama/llama-4-scout-17b-16e-instruct'], 'qwen/qwen3.8-27b');
+    assert.deepStrictEqual(groq.opcoesDeRaciocinio('qwen/qwen3.8-27b', 'none'), { reasoning_effort: 'none' });
 });

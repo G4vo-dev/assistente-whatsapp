@@ -31,7 +31,7 @@ function montarCsv(transacoes) {
 
 function acharTarefa(texto) {
     const alvo = normalizar(texto);
-    const apelidos = { fixo: 'fixos', contas: 'fixos', semana: 'semanal', mes: 'mensal', fechamento: 'mensal' };
+    const apelidos = { fixo: 'fixos', contas: 'fixos', semana: 'semanal', mes: 'mensal', fechamento: 'mensal', local: 'backuplocal' };
     const id = apelidos[alvo] || alvo;
     return agenda.TAREFAS.find((t) => t.id === id) || null;
 }
@@ -45,7 +45,7 @@ module.exports = {
             soDono: true,
             uso: 'avisos [ligar | desligar | testar] [nome]',
             descricao: 'mensagens automáticas na conversa com você',
-            ajuda: 'nomes: fixos, semanal, mensal, backup. "testar" manda o aviso agora. só o dono usa.',
+            ajuda: 'nomes: fixos, semanal, mensal, backup, backuplocal. "testar" manda o aviso agora. só o dono usa.',
             exemplos: ['avisos', 'avisos desligar backup', 'avisos testar semanal'],
             async executar(ctx) {
                 const acao = normalizar(ctx.args[0]);
@@ -70,7 +70,7 @@ module.exports = {
             nome: 'backup',
             soDono: true,
             descricao: 'manda agora o arquivo de backup',
-            ajuda: 'o bot também manda sozinho todo dia às 22h quando algo mudou. guarde o arquivo: com ele você recupera tudo se trocar de celular. '
+            ajuda: 'o bot também manda sozinho todo dia às 22h quando algo mudou, e guarda uma cópia por dia no aparelho (dados/backups, últimos 7 dias). guarde o arquivo que ele manda: com ele você recupera tudo se trocar de celular. '
                 + 'só o dono usa, porque o arquivo tem as finanças de todas as conversas.',
             async executar(ctx) {
                 const { texto } = backup.montarBackup();
@@ -81,7 +81,7 @@ module.exports = {
             nome: 'restaurar',
             soDono: true,
             uso: 'restaurar confirmar',
-            descricao: 'volta as finanças de um arquivo de backup',
+            descricao: 'volta as finanças, lembretes e anotações de um backup',
             ajuda: 'responda o arquivo de backup (backup-assistente-....json) com #restaurar confirmar. '
                 + 'os dados atuais são guardados em dados/backups antes. só o dono usa.',
             async executar(ctx) {
@@ -91,7 +91,7 @@ module.exports = {
                     return ctx.responder(`❌ responda o arquivo de backup (backup-assistente-....json) com ${ctx.prefixo}restaurar confirmar`);
                 }
                 if (normalizar(ctx.args[0]) !== 'confirmar') {
-                    return ctx.responder(`⚠️ isso troca TODAS as finanças e lembretes atuais pelos do arquivo ${nome}.\npara confirmar, responda o arquivo com *${ctx.prefixo}restaurar confirmar*`);
+                    return ctx.responder(`⚠️ isso troca TODAS as finanças, lembretes e anotações atuais pelos do arquivo ${nome}.\npara confirmar, responda o arquivo com *${ctx.prefixo}restaurar confirmar*`);
                 }
                 let conteudo;
                 try {

@@ -8,6 +8,8 @@ const CATEGORIAS = [
     require('./assistente'),
     require('./financas'),
     require('./planejamento'),
+    require('./organizacao'),
+    require('./estudos'),
     require('./relatorios'),
     require('./dados'),
     require('./utilitarios'),
@@ -70,7 +72,8 @@ function montarAjuda(nome, prefixo) {
     const c = encontrarComando(nome);
     if (!c) return `❌ não conheço o comando ${prefixo}${nome}. veja a lista em ${prefixo}menu`;
     let txt = `❓ *${prefixo}${c.uso || c.nome}*\n${c.descricao}`;
-    if (c.ajuda) txt += `\n\n${c.ajuda}`;
+    // os textos de ajuda são escritos com # e trocam pelo prefixo em uso
+    if (c.ajuda) txt += `\n\n${c.ajuda.replace(/#(?=[a-z])/g, prefixo)}`;
     if (c.exemplos?.length) txt += `\n\n*exemplos*\n${c.exemplos.map((e) => `${prefixo}${e}`).join('\n')}`;
     if (c.apelidos?.length) txt += `\n\n*também funciona:* ${c.apelidos.map((a) => prefixo + a).join(', ')}`;
     return txt;

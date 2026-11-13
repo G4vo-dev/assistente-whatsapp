@@ -1,10 +1,34 @@
 // O que o resto do bot usa para falar com IA. Por baixo, cada pedido passa pela fila de IAs (fila.js).
 const fila = require('./fila');
+const chaves = require('./chaves');
+const { PREFIXO } = require('../../config');
 
-const SISTEMA_PADRAO = 'você é um assistente de WhatsApp amigável, gamer e nerd. responda em português, de forma direta. '
+const REGRAS_DE_FORMATO = 'responda em português, de forma direta e completa, sem enrolação. '
     + 'use a formatação do WhatsApp (*negrito*, _itálico_) e não use markdown com ## ou **.';
 
+const PERSONALIDADE_PADRAO = 'você é um assistente geral de WhatsApp: ajuda com qualquer assunto (estudos, trabalho, dinheiro, saúde em geral, '
+    + 'tecnologia, textos, ideias, dúvidas do dia a dia). raciocine com cuidado, dê a resposta completa e correta, e diga quando não tiver certeza.';
+
+// Dá para trocar o jeito de responder com IA_PERSONALIDADE no .env; as regras de formato continuam valendo.
+function sistemaPadrao() {
+    const personalidade = String(process.env.IA_PERSONALIDADE || '').trim() || PERSONALIDADE_PADRAO;
+    return `${personalidade} ${REGRAS_DE_FORMATO}`;
+}
+
+// Tamanho máximo da resposta (em "tokens", mais ou menos 3/4 de palavra cada). IA_MAX_TOKENS no .env ajusta.
+function limiteDeResposta() {
+    const n = parseInt(process.env.IA_MAX_TOKENS, 10);
+    return n > 0 ? Math.min(n, 8000) : 2048;
+}
+
 const SEM_CHAVE = '❌ IA desligada: coloque a chave de pelo menos uma IA (GROQ_API_KEY ou GEMINI_API_KEY) no arquivo .env e reinicie o bot.';
+
+// Sem IA: o dono coloca a chave no .env (ou com #chave); quem não é o dono coloca a própria com #chave.
+function semChave() {
+    if (chaves.ehDono()) return SEM_CHAVE;
+    return `❌ a IA não está liberada para você. coloque a sua chave (é grátis): ${PREFIXO}chave groq [sua chave]\n`
+        + `pegue em ${chaves.IAS.groq.site} · mande no privado comigo · detalhes: ${PREFIXO}ajuda chave`;
+}
 
 function iaLigada(tarefa = 'texto') {
     return fila.disponivel(tarefa);
@@ -27,14 +51,17 @@ function ehFalha(resposta) {
 }
 
 function mensagemDeFalha(tarefa, erro) {
-    if (!fila.disponivel(tarefa)) return SEM_CHAVE;
+    if (!fila.disponivel(tarefa)) return semChave();
     return `❌ ${erro.message}. tente de novo em alguns minutos.`;
 }
 
 // tarefa: "texto" (conversa) ou "financas" (dados de dinheiro: fica fora das IAs que sorteiam modelos).
-async function perguntarIA(pergunta, { sistema = SISTEMA_PADRAO, maxTokens = 1024, temperatura = 0.7, tarefa = 'texto' } = {}) {
+// raciocinio: quanto a IA pensa antes (none/low/medium/high). Nas finanças é "none": só converte frase em JSON,
+// e assim responde bem mais rápido.
+async function perguntarIA(pergunta, { sistema = sistemaPadrao(), maxTokens = limiteDeResposta(), temperatura = 0.7, tarefa = 'texto', raciocinio } = {}) {
+    const pensar = raciocinio || (tarefa === 'financas' ? 'none' : undefined);
     try {
-        const { texto } = await fila.executar(tarefa, (p) => p.texto({ sistema, pergunta, maxTokens, temperatura }));
+        const { texto } = await fila.executar(tarefa, (p) => p.texto({ sistema, pergunta, maxTokens, temperatura, raciocinio: pensar }));
         return limparResposta(texto) || '❌ a IA não respondeu nada. tente perguntar de outro jeito.';
     } catch (erro) {
         return mensagemDeFalha(tarefa, erro);
@@ -49,7 +76,9 @@ async function perguntarSobreImagem(dados, tipo, pergunta, { maxTokens = 800, te
         return limparResposta(texto);
     } catch (erro) {
         if (tarefa === 'pdf' && !fila.disponivel('pdf')) {
-            return '❌ para ler PDF, coloque a GEMINI_API_KEY no .env (ou mande um print do comprovante).';
+            return chaves.ehDono()
+                ? '❌ para ler PDF, coloque a GEMINI_API_KEY no .env (ou mande um print do comprovante).'
+                : `❌ para ler PDF, coloque a sua chave do Gemini: ${PREFIXO}chave gemini [sua chave] (ou mande um print do comprovante).`;
         }
         return mensagemDeFalha(tarefa, erro);
     }
@@ -87,5 +116,5 @@ function extrairListaJson(texto) {
 
 module.exports = {
     perguntarIA, perguntarSobreImagem, transcreverAudio, extrairListaJson, limparResposta, iaLigada, ehFalha,
-    situacao: fila.situacao, SEM_CHAVE,
+    situacao: fila.situacao, SEM_CHAVE, semChave,
 };
